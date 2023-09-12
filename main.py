@@ -36,10 +36,10 @@ if not os.path.isfile(CREDENTIALS_PATH):
         try:
             sp_oauth = SpotifyClientCredentials(client_id = spotify_client_id, client_secret = spotify_client_secret)
             sp = spotipy.Spotify(client_credentials_manager=sp_oauth)
-            track = sp.track(id="4cOdK2wGLETKBW3PvgPWqT")
+            track = sp.track(track_id="4cOdK2wGLETKBW3PvgPWqT")
         except Exception as e:
             print(f"[Error] When connecting to Spotify the following error occurred: '{str(e)}' this could be because the credentials are wrong.")
-            print("\nEnter: ")
+            input("\nEnter: ")
         else:
             break
     with open(CREDENTIALS_PATH, "w") as file:
