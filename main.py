@@ -1,6 +1,5 @@
 from flask import Flask
 import os
-import json
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
@@ -43,10 +42,10 @@ if not os.path.isfile(CREDENTIALS_PATH):
         else:
             break
     with open(CREDENTIALS_PATH, "w") as file:
-        json.dump({spotify_client_id, spotify_client_secret}, file)
+        file.write(spotify_client_id + "---" + spotify_client_secret)
 else:
     with open(CREDENTIALS_PATH, "r") as file:
-        credentials = json.load(file)
+        credentials = file.read().split("---")
     spotify_client_id, spotify_client_secret = credentials
 
 app = Flask("Spotofy")
@@ -57,3 +56,4 @@ def index():
 
 if __name__ == "__main__":
     app.run(host = "localhost", port = 8080)
+
