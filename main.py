@@ -1,7 +1,11 @@
 from flask import Flask
 import os
 import spotipy
+import logging
 from spotipy.oauth2 import SpotifyClientCredentials
+
+if not __name__ == "__main__":
+    exit()
 
 LOGO = """   _____             __        ____     
   / ___/____  ____  / /_____  / __/_  __
@@ -50,10 +54,13 @@ else:
 
 app = Flask("Spotofy")
 
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.WARNING)
+
 @app.route("/")
 def index():
     return "Hello World!"
 
-if __name__ == "__main__":
-    app.run(host = "localhost", port = 8080)
-
+os.system('cls' if os.name == 'nt' else 'clear')
+print(LOGO)
+app.run(host = "localhost", port = 8080)
