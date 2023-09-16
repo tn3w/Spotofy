@@ -2,6 +2,7 @@ import os
 import re
 import json
 import secrets
+from time import time
 from threading import Lock
 from flask import request, g
 from base64 import urlsafe_b64encode, urlsafe_b64decode
@@ -261,17 +262,26 @@ SESSIONS_PATH = os.path.join(DATA_DIR, "sessions.json")
 
 class Session:
 
-    def _add_session() -> Tuple[str, str]:
-        raise NotImplementedError("_add_session not added yet")
-        
+    def _add_session() -> Tuple[str, str]:        
         if os.path.isfile(SESSIONS_PATH):
             sessions = JSON.load(SESSIONS_PATH)
         else:
             sessions = {}
         
-        session_id = generate_random_string(10)
+        session_id = generate_random_string(10, with_punctuation = False)
         while any([Hashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions]):
             session_id = generate_random_string(10)
+
+        hashed_session_id = Hashing().hash(session_id)
+
+        session_token = generate_random_string(40)
+
+        sessions[hashed_session_id] = None
+
+        JSON.dump(sessions, SESSIONS_PATH)
+
+        g.session_cookie = session_id + "//" + session_token
+        return session_id, session_token
     
     def __getitem__(key) -> str:
         if request.cookies.get("SESSION") is None:
@@ -287,10 +297,45 @@ class Session:
         for hashed_session_id, session_data in sessions.items():
             session_id_comparison = Hashing().compare(client_session_id, hashed_session_id)
             if session_id_comparison:
+                if session_data == None:
+                    raise Exception("No data has been added to this session yet")
                 crypted_data = session_data["data"]
                 decrypted_data = SymmetricCrypto(client_session_token).decrypt(crypted_data)
                 data = json.loads(decrypted_data)
                 return data[key]
                 
     def __setitem__(key, value) -> str:
-        raise NotImplementedError("__setitem__ not added yet")
+        if request.cookies.get("SESSION") is None:
+            client_session_id, client_session_token = Session._add_session()
+        else:
+            client_session_id, client_session_token = request.cookies.get("SESSION").split("//")
+
+        if os.path.isfile(SESSIONS_PATH):
+            sessions = JSON.load(SESSIONS_PATH)
+        else:
+            sessions = {}
+
+        for hashed_session_id, session_data in sessions.items():
+            session_id_comparison = Hashing().compare(client_session_id, hashed_session_id)
+            if session_id_comparison:
+                if session_data == None:
+                    data = {}
+                else:
+                    symmetriccrypto = SymmetricCrypto(client_session_token)
+                    decrypted_data = symmetriccrypto.decrypt(session_data)
+                    data = json.loads(decrypted_data)
+                data[key] = value
+                encrypted_data = symmetriccrypto.encrypt(json.dumps(data))
+                sessions[hashed_session_id] = encrypted_data
+                JSON.dump(sessions, SESSIONS_PATH)
+                return
+                
+        client_session_id, client_session_token = Session._add_session()
+        for hashed_session_id, session_data in sessions.items():
+            session_id_comparison = Hashing().compare(client_session_id, hashed_session_id)
+            if session_id_comparison:
+                data = {}
+            data[key] = value
+            encrypted_data = symmetriccrypto.encrypt(json.dumps(data))
+            sessions[hashed_session_id] = encrypted_data
+            JSON.dump(sessions, SESSIONS_PATH)
