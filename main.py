@@ -54,7 +54,7 @@ else:
     spotify_client_id, spotify_client_secret = credentials
 
 app = Flask("Spotofy")
-app.after_request(Session.after_request)
+app.after_request(Session._after_request)
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.WARNING)
