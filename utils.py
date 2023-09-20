@@ -300,7 +300,7 @@ class Session(dict):
         return None, None
 
     @staticmethod
-    def after_request(response: Response):
+    def _after_request(response: Response):
         try:
             g.session_cookie
         except:
