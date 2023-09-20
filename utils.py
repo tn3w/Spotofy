@@ -4,7 +4,7 @@ import json
 import secrets
 from time import time
 from threading import Lock
-from flask import request, g
+from flask import request, g, Response
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, padding
