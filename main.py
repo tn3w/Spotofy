@@ -3,6 +3,7 @@ import os
 import spotipy
 import logging
 from spotipy.oauth2 import SpotifyClientCredentials
+from utils import Session
 
 if not __name__ == "__main__":
     exit()
@@ -53,6 +54,7 @@ else:
     spotify_client_id, spotify_client_secret = credentials
 
 app = Flask("Spotofy")
+app.after_request(Session.after_request)
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.WARNING)
