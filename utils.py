@@ -260,8 +260,12 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(CURRENT_DIR, "data")
 SESSIONS_PATH = os.path.join(DATA_DIR, "sessions.json")
 
-class Session:
+class Session(dict):
+    
+    def __init__(self):
+        super().__init__()
 
+    @staticmethod
     def _add_session() -> Tuple[str, str]:        
         if os.path.isfile(SESSIONS_PATH):
             sessions = JSON.load(SESSIONS_PATH)
@@ -269,7 +273,7 @@ class Session:
             sessions = {}
         
         session_id = generate_random_string(10, with_punctuation = False)
-        while any([Hashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions]):
+        while any([Hashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions.items()]):
             session_id = generate_random_string(10)
 
         hashed_session_id = Hashing().hash(session_id)
@@ -282,60 +286,74 @@ class Session:
 
         g.session_cookie = session_id + "//" + session_token
         return session_id, session_token
-    
-    def __getitem__(key) -> str:
-        if request.cookies.get("SESSION") is None:
-            raise Exception("Client has not been assigned a session yet.")
-            
-        client_session_id, client_session_token = request.cookies.get("SESSION").split("//")
-        
+
+    @staticmethod
+    def _get_session(session_id):
         if os.path.isfile(SESSIONS_PATH):
             sessions = JSON.load(SESSIONS_PATH)
         else:
             sessions = {}
-            
         for hashed_session_id, session_data in sessions.items():
-            session_id_comparison = Hashing().compare(client_session_id, hashed_session_id)
+            session_id_comparison = Hashing().compare(session_id, hashed_session_id)
             if session_id_comparison:
-                if session_data == None:
-                    raise Exception("No data has been added to this session yet")
-                crypted_data = session_data["data"]
-                decrypted_data = SymmetricCrypto(client_session_token).decrypt(crypted_data)
-                data = json.loads(decrypted_data)
-                return data[key]
+                return hashed_session_id, session_data
+        return None, None
+
+    @staticmethod
+    def after_request(response: Response):
+        try:
+            g.session_cookie
+        except:
+            pass
+        else:
+            response.set_cookie("SESSION", g.session_cookie, max_age=93312000)
+        return response
+
+    def __getitem__(self, key) -> str:
+        if request.cookies.get("SESSION") is None:
+            raise Exception("Client has not been assigned a session yet.")
+            
+        client_session_id, client_session_token = request.cookies.get("SESSION").split("//")
+
+        hashed_session_id, session_data = self._get_session(client_session_id)
+        if hashed_session_id is None:
+            raise Exception("Client has not been assigned a session yet.")
+        
+        if session_data == None:
+            data = {}
+        else:
+            decrypted_data = SymmetricCrypto(client_session_token).decrypt(session_data)
+            data = json.loads(decrypted_data)
+        
+        return data[key]
                 
-    def __setitem__(key, value) -> str:
+    def __setitem__(self, key, value) -> str:
         if request.cookies.get("SESSION") is None:
             client_session_id, client_session_token = Session._add_session()
         else:
             client_session_id, client_session_token = request.cookies.get("SESSION").split("//")
 
+        hashed_session_id, session_data = self._get_session(client_session_id)
+        if hashed_session_id is None:
+            client_session_id, client_session_token = Session._add_session()
+            hashed_session_id, session_data = self._get_session(client_session_id)
+        
+        symmetric_crypto = SymmetricCrypto(client_session_token)
+
+        if session_data == None:
+            data = {}
+        else:
+            decrypted_data = symmetric_crypto.decrypt(session_data)
+            data = json.loads(decrypted_data)
+        
+        data[key] = value
+        encrypted_data = symmetric_crypto.encrypt(json.dumps(data))
+
         if os.path.isfile(SESSIONS_PATH):
             sessions = JSON.load(SESSIONS_PATH)
         else:
             sessions = {}
 
-        for hashed_session_id, session_data in sessions.items():
-            session_id_comparison = Hashing().compare(client_session_id, hashed_session_id)
-            if session_id_comparison:
-                if session_data == None:
-                    data = {}
-                else:
-                    symmetriccrypto = SymmetricCrypto(client_session_token)
-                    decrypted_data = symmetriccrypto.decrypt(session_data)
-                    data = json.loads(decrypted_data)
-                data[key] = value
-                encrypted_data = symmetriccrypto.encrypt(json.dumps(data))
-                sessions[hashed_session_id] = encrypted_data
-                JSON.dump(sessions, SESSIONS_PATH)
-                return
-                
-        client_session_id, client_session_token = Session._add_session()
-        for hashed_session_id, session_data in sessions.items():
-            session_id_comparison = Hashing().compare(client_session_id, hashed_session_id)
-            if session_id_comparison:
-                data = {}
-            data[key] = value
-            encrypted_data = symmetriccrypto.encrypt(json.dumps(data))
-            sessions[hashed_session_id] = encrypted_data
-            JSON.dump(sessions, SESSIONS_PATH)
+        sessions[hashed_session_id] = encrypted_data
+        JSON.dump(sessions, SESSIONS_PATH)
+        
