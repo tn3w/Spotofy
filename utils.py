@@ -1,9 +1,15 @@
 import os
 import re
 import json
+import random
 import secrets
+import requests
+import numpy as np
 from time import time
+from PIL import Image
+from io import BytesIO
 from threading import Lock
+import matplotlib.colors as mcolors
 from flask import request, g, Response
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 from cryptography.hazmat.backends import default_backend
@@ -258,6 +264,7 @@ class Hashing:
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(CURRENT_DIR, "data")
+CACHE_DIR = os.path.join(CURRENT_DIR, "cache")
 SESSIONS_PATH = os.path.join(DATA_DIR, "sessions.json")
 
 class Session(dict):
@@ -356,4 +363,75 @@ class Session(dict):
 
         sessions[hashed_session_id] = encrypted_data
         JSON.dump(sessions, SESSIONS_PATH)
+
+USER_AGENTS = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.3", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.76", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5.1 Safari/605.1.1", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/117.0", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.7", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0"]
+
+def get_image_color(image_url: str):
+    """
+    Function to get the main color of an image based on its image url
+    :param image_url: The url of the image
+    """
+    try:
+        response = requests.get(image_url, headers={"User-Agent": random.choice(USER_AGENTS)})
+        response.raise_for_status()
+        image = Image.open(BytesIO(response.content))
+        image_array = np.array(image)
+        
+        flattened_colors = image_array.reshape(-1, image_array.shape[-1])
+        colors, count = np.unique(flattened_colors, axis=0, return_counts=True)
+        
+        most_common_color = colors[count.argmax()]
+        
+        hex_color = mcolors.rgb2hex(most_common_color / 255)
+        
+        return hex_color
+    except:
+        return None
+
+def get_youtube_id(search: str, spotify_id: Optional[str] = None) -> str:
+    """
+    Function to get a YouTube video ID based on a search term
+    :param search: Search term after searching for video ids on YouTube
+    """
+
+    if os.path.isfile(YOUTUBE_IDS_CACHE_PATH):
+        youtube_ids = JSON.load(YOUTUBE_IDS_CACHE_PATH)
+        
+        copy_youtube_ids = youtube_ids.copy()
+        for youtube_search, search_data in youtube_ids.items():
+            if search_data["time"] + 2592000 < int(time()):
+                del copy_youtube_ids[youtube_search]
+        
+        if len(copy_youtube_ids) != len(youtube_ids):
+            JSON.dump(copy_youtube_ids, YOUTUBE_IDS_CACHE_PATH)
+            youtube_ids = copy_youtube_ids
+    else:
+        youtube_ids = {}
+
+    for youtube_search, search_data in youtube_ids.items():
+        if not spotify_id is None:
+            if search_data["spotify_id"] == spotify_id:
+                return search_data["youtube_id"]
+        else:
+            if youtube_search == search:
+                return search_data["youtube_id"]
+    
+    response = requests.get("https://www.youtube.com/results?search_query=" + search.replace(" ", "+"), headers = {'User-Agent': random.choice(USER_AGENTS)})
+
+    video_id = re.findall(r"watch\?v=(\S{11})", response.content.decode())[0]
+
+    if os.path.isfile(YOUTUBE_IDS_CACHE_PATH):
+        youtube_videos = JSON.load(YOUTUBE_IDS_CACHE_PATH)
+    else:
+        youtube_videos = {}
+
+    youtube_videos[search] = {
+        "youtube_id": video_id,
+        "spotify_id": spotify_id,
+        "time": int(time())
+    }
+
+    JSON.dump(youtube_videos, YOUTUBE_IDS_CACHE_PATH)
+
+    return video_id
         
