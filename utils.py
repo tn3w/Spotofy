@@ -388,6 +388,8 @@ def get_image_color(image_url: str):
     except:
         return None
 
+YOUTUBE_IDS_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-ids-cache.json")
+
 def get_youtube_id(search: str, spotify_id: Optional[str] = None) -> str:
     """
     Function to get a YouTube video ID based on a search term
