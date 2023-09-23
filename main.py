@@ -7,9 +7,8 @@ import platform
 import zipfile
 import shutil
 import requests
-from time import time, sleep
 from spotipy.oauth2 import SpotifyClientCredentials
-from utils import Session, get_youtube_id
+from utils import Session
 
 if not __name__ == "__main__":
     exit()
@@ -49,7 +48,7 @@ if not os.path.isfile(FFMPEG_CONF_PATH):
         if SYSTEM not in ["Windows", "Darwin", "Linux"]:
             print("Operating system not found...\n\nPlease install FFmpeg by following the instructions on the following web page for your operating system:\nhttps://ffmpeg.org/download.html")
             print('Unzip the downloaded "7z" or "zip" file, and go into the unzipped folder and search for the "ffmpeg.exe" file, now copy the path of this file and enter it below.')
-            FFMPEG_PATH = input("[FFMPEG PATH]: ") # FIXME: Input Validation
+            FFMPEG_PATH = input("[FFMPEG PATH]: ")
         elif SYSTEM == "Windows":
             WINDOWS_FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
             FFMPEG_ARCHIVE_PATH = os.path.join(DATA_DIR, "ffmpeg.zip")
