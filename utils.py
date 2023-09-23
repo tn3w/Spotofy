@@ -8,6 +8,7 @@ import numpy as np
 from time import time
 from PIL import Image
 from io import BytesIO
+from yt_dlp import YoutubeDL
 from threading import Lock
 import matplotlib.colors as mcolors
 from flask import request, g, Response
@@ -15,6 +16,7 @@ from base64 import urlsafe_b64encode, urlsafe_b64decode
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, padding
 from jinja2 import Environment, select_autoescape, Undefined
+from canvas_pb2 import EntityCanvazRequest, EntityCanvazResponse
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from typing import Union, Optional, Tuple
@@ -436,4 +438,128 @@ def get_youtube_id(search: str, spotify_id: Optional[str] = None) -> str:
     JSON.dump(youtube_videos, YOUTUBE_IDS_CACHE_PATH)
 
     return video_id
+
+SPOTIFY_CANVAS_CACHE_PATH = os.path.join(CACHE_DIR, "spotify-canvas-cache.json")
+
+def get_canvas_url(spotify_track_id: str) -> str:
+    """
+    Gets the canvas of a Spotify track
+    :param spotify_track_id: The ID of the Spotify track
+    """
+
+    def get_access_token():
+        try:
+            response = requests.get('https://open.spotify.com/get_access_token?reason=transport', headers={'User-Agent': random.choice(USER_AGENTS)})
+            data = response.json()
+            return data.get("accessToken")
+        except:
+            return
         
+    if os.path.isfile(SPOTIFY_CANVAS_CACHE_PATH):
+        spotify_canvas = JSON.load(SPOTIFY_CANVAS_CACHE_PATH)
+
+        copy_spotify_canvas = spotify_canvas.copy()
+        for track_id, canvas_data in spotify_canvas.items():
+            if canvas_data["time"] + 2592000 < int(time()):
+                del copy_spotify_canvas[track_id]
+        
+        if len(copy_spotify_canvas) != len(spotify_canvas):
+            JSON.dump(copy_spotify_canvas, SPOTIFY_CANVAS_CACHE_PATH)
+            spotify_canvas = copy_spotify_canvas
+    else:
+        spotify_canvas = {}
+    
+    for track_id, canvas_data in spotify_canvas.items():
+        if track_id == spotify_track_id:
+            if len(canvas_data["urls"]) == 0:
+                return
+
+            if len(canvas_data["urls"]) == 1:
+                return canvas_data["urls"][0]
+            
+            return random.choice(canvas_data["urls"])
+
+    access_token = get_access_token()
+    if access_token is None:
+        return
+
+    canvas_request = EntityCanvazRequest()
+    canvas_request_entities = canvas_request.entities.add()
+    canvas_request_entities.entity_uri = 'spotify:track:'+ spotify_track_id
+
+    try:
+        response = requests.post('https://gew1-spclient.spotify.com/canvaz-cache/v0/canvases', 
+            headers=
+            {
+                "Content-Type": "application/x-protobuf", 
+                "Authorization": "Bearer %s" % access_token, 
+                "User-Agent": random.choice(USER_AGENTS)
+            }, 
+            data = canvas_request.SerializeToString()
+        )
+    except:
+        return
+    
+    canvas_response = EntityCanvazResponse()
+    try:
+        canvas_response.ParseFromString(response.content)
+    except:
+        return
+    
+    canvas_urls = [canvas.url for canvas in canvas_response.canvases]
+
+    spotify_canvas[spotify_track_id] = {"time": int(time()), "urls": canvas_urls}
+    JSON.dump(spotify_canvas, SPOTIFY_CANVAS_CACHE_PATH)
+
+    if len(canvas_urls) == 0:
+        return
+
+    if len(canvas_urls) == 1:
+        return canvas_urls[0]
+    
+    return random.choice(canvas_urls)
+
+MUSIC_CACHE_DIR = os.path.join(CACHE_DIR, "music")
+FFMPEG_CONF_PATH = os.path.join(DATA_DIR, "FFmpeg.conf")
+
+def get_music(youtube_video_id: str) -> str:
+    """
+    Function to get the music file path of a YouTube video
+    :param youtube_video_id: The YouTube Video ID
+    """
+
+    if os.path.isfile(FFMPEG_CONF_PATH):
+        with open(FFMPEG_CONF_PATH, "r") as file:
+            FFMPEG_PATH = file.read()
+    else:
+        FFMPEG_PATH = "ffmpeg"
+
+    for file in os.listdir(MUSIC_CACHE_DIR):
+        file_youtube_id, file_time = file.split(".")[0].split("++")
+        if int(file_time) + 2592000 < int(time()):
+            os.remove(os.path.join(MUSIC_CACHE_DIR, file))
+        else:
+            if file_youtube_id == youtube_video_id:
+                return os.path.join(MUSIC_CACHE_DIR, file)
+    
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": os.path.join(MUSIC_CACHE_DIR, f"{youtube_video_id}++{str(int(time()))}" + ".%(ext)s"),
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }],
+        "ffmpeg_location": FFMPEG_PATH,
+        "duration": 600,
+    }
+
+    with YoutubeDL(ydl_opts) as ydl:
+        ydl.download(["https://www.youtube.com/watch?v=" + youtube_video_id])
+    
+    for file in os.listdir(MUSIC_CACHE_DIR):
+        file_youtube_id, file_time = file.split(".")[0].split("++")
+        if file_youtube_id == youtube_video_id:
+            return os.path.join(MUSIC_CACHE_DIR, file)
+    
+    raise Exception("Something went wrong with the YouTube download...")
