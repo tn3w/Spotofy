@@ -8,9 +8,9 @@ import numpy as np
 from time import time
 from PIL import Image
 from io import BytesIO
-from yt_dlp import YoutubeDL
 from threading import Lock
-import matplotlib.colors as mcolors
+from yt_dlp import YoutubeDL
+from collections import Counter
 from flask import request, g, Response
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 from cryptography.hazmat.backends import default_backend
@@ -368,27 +368,32 @@ class Session(dict):
 
 USER_AGENTS = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.3", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.76", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5.1 Safari/605.1.1", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/117.0", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.7", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0"]
 
-def get_image_color(image_url: str):
+def get_image_color(image_url: str) -> str:
     """
     Function to get the main color of an image based on its image url
     :param image_url: The url of the image
     """
-    try:
-        response = requests.get(image_url, headers={"User-Agent": random.choice(USER_AGENTS)})
-        response.raise_for_status()
-        image = Image.open(BytesIO(response.content))
-        image_array = np.array(image)
-        
-        flattened_colors = image_array.reshape(-1, image_array.shape[-1])
-        colors, count = np.unique(flattened_colors, axis=0, return_counts=True)
-        
-        most_common_color = colors[count.argmax()]
-        
-        hex_color = mcolors.rgb2hex(most_common_color / 255)
-        
-        return hex_color
-    except:
-        return None
+    response = requests.get(image_url, headers={"User-Agent": random.choice(USER_AGENTS)})
+    response.raise_for_status()
+    image = Image.open(BytesIO(response.content))
+    image_np = np.array(image)
+
+    pixels = image_np.reshape(-1, 3)
+
+    color_counts = Counter(map(tuple, pixels))
+
+    sorted_colors = sorted(color_counts.items(), key=lambda x: -x[1])
+
+    for color, _ in sorted_colors:
+        r, g, b = color
+
+        brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
+        if 0.1 < brightness < 0.9:
+            hex_color = "#{:02X}{:02X}{:02X}".format(r, g, b)
+            return hex_color
+
+    return None
 
 YOUTUBE_IDS_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-ids-cache.json")
 
