@@ -270,44 +270,28 @@ CACHE_DIR = os.path.join(CURRENT_DIR, "cache")
 SESSIONS_PATH = os.path.join(DATA_DIR, "sessions.json")
 
 class Session(dict):
-    
-    def __init__(self):
+
+    def __init__(self, session_id: Optional[str] = None, session_token: Optional[str] = None) -> str:
         super().__init__()
 
-    @staticmethod
-    def _add_session() -> Tuple[str, str]:        
-        if os.path.isfile(SESSIONS_PATH):
-            sessions = JSON.load(SESSIONS_PATH)
-        else:
-            sessions = {}
+        self.session_id = None
+        self.session_token = None
+
+        if not None in [session_id, session_token]:
+            hashed_session_id, _ = self._get_session(session_id, session_token)
+            if hashed_session_id is None:
+                raise Exception("Given session does not exist")
+            self.session_id = session_id
+            self.session_token = session_token
         
-        session_id = generate_random_string(10, with_punctuation = False)
-        while any([Hashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions.items()]):
-            session_id = generate_random_string(10)
+        if not request.cookies.get("SESSION") is None:
+            client_session_id, client_session_token = request.cookies.get("SESSION").split("//")
 
-        hashed_session_id = Hashing().hash(session_id)
-
-        session_token = generate_random_string(40)
-
-        sessions[hashed_session_id] = None
-
-        JSON.dump(sessions, SESSIONS_PATH)
-
-        g.session_cookie = session_id + "//" + session_token
-        return session_id, session_token
-
-    @staticmethod
-    def _get_session(session_id):
-        if os.path.isfile(SESSIONS_PATH):
-            sessions = JSON.load(SESSIONS_PATH)
-        else:
-            sessions = {}
-        for hashed_session_id, session_data in sessions.items():
-            session_id_comparison = Hashing().compare(session_id, hashed_session_id)
-            if session_id_comparison:
-                return hashed_session_id, session_data
-        return None, None
-
+            hashed_session_id, _ = self._get_session(client_session_id, client_session_token)
+            if not hashed_session_id is None:
+                self.session_id = client_session_id
+                self.session_token = client_session_token
+    
     @staticmethod
     def _after_request(response: Response):
         try:
@@ -318,53 +302,86 @@ class Session(dict):
             response.set_cookie("SESSION", g.session_cookie, max_age=93312000)
         return response
 
-    def __getitem__(self, key) -> str:
-        if request.cookies.get("SESSION") is None:
-            raise Exception("Client has not been assigned a session yet.")
-            
-        client_session_id, client_session_token = request.cookies.get("SESSION").split("//")
-
-        hashed_session_id, session_data = self._get_session(client_session_id)
-        if hashed_session_id is None:
-            raise Exception("Client has not been assigned a session yet.")
-        
-        if session_data == None:
-            data = {}
-        else:
-            decrypted_data = SymmetricCrypto(client_session_token).decrypt(session_data)
-            data = json.loads(decrypted_data)
-        
-        return data[key]
-                
-    def __setitem__(self, key, value) -> str:
-        if request.cookies.get("SESSION") is None:
-            client_session_id, client_session_token = Session._add_session()
-        else:
-            client_session_id, client_session_token = request.cookies.get("SESSION").split("//")
-
-        hashed_session_id, session_data = self._get_session(client_session_id)
-        if hashed_session_id is None:
-            client_session_id, client_session_token = Session._add_session()
-            hashed_session_id, session_data = self._get_session(client_session_id)
-        
-        symmetric_crypto = SymmetricCrypto(client_session_token)
-
-        if session_data == None:
-            data = {}
-        else:
-            decrypted_data = symmetric_crypto.decrypt(session_data)
-            data = json.loads(decrypted_data)
-        
-        data[key] = value
-        encrypted_data = symmetric_crypto.encrypt(json.dumps(data))
-
+    @staticmethod
+    def _get_session(session_id: str, session_token: Optional[str] = None):
         if os.path.isfile(SESSIONS_PATH):
             sessions = JSON.load(SESSIONS_PATH)
         else:
             sessions = {}
+        for hashed_session_id, session_data in sessions.items():
+            session_id_comparison = Hashing().compare(session_id, hashed_session_id)
+            if session_id_comparison:
+                if not session_token is None:
+                    session_token_comparison = Hashing().compare(session_token, session_data["hash"])
+                    if session_token_comparison:
+                        return hashed_session_id, session_data
+                else:
+                    return hashed_session_id, session_data
+            break
+        return None, None
 
-        sessions[hashed_session_id] = encrypted_data
-        JSON.dump(sessions, SESSIONS_PATH)
+    def __getitem__(self, key) -> Optional[str]:
+        if self.session_id is None:
+            return None
+        
+        _, session_data = self._get_session(self.session_id, self.session_token)
+        
+        if session_data["data"] == None:
+            data = {}
+        else:
+            decrypted_data = SymmetricCrypto(self.session_token).decrypt(session_data["data"])
+            data = json.loads(decrypted_data)
+        
+        try:
+            return data[key]
+        except:
+            return None
+    
+    def __setitem__(self, key, value) -> str:
+        if self.session_id is None:
+            if os.path.isfile(SESSIONS_PATH):
+                sessions = JSON.load(SESSIONS_PATH)
+            else:
+                sessions = {}
+            
+            session_id = generate_random_string(10, with_punctuation = False)
+            while any([Hashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions.items()]):
+                session_id = generate_random_string(10)
+            hashed_session_id = Hashing().hash(session_id)
+            session_token = generate_random_string(40)
+            hashed_session_token = Hashing().hash(session_token)
+
+            sessions[hashed_session_id] = {
+                "hash": hashed_session_token,
+                "data": SymmetricCrypto(session_token).encrypt(json.dumps({key: value}))
+            }
+
+            JSON.dump(sessions, SESSIONS_PATH)
+
+            g.session_cookie = session_id + "//" + session_token
+
+            self.session_id = session_id
+            self.session_token = session_token
+        else:
+            hashed_session_id, session_data = self._get_session(self.session_id, self.session_token)
+
+            symmetric_crypto = SymmetricCrypto(self.session_token)
+
+            decrypted_data = symmetric_crypto.decrypt(session_data["data"])
+            data = json.loads(decrypted_data)
+
+            data[key] = value
+            encrypted_data = symmetric_crypto.encrypt(json.dumps(data))
+
+            if os.path.isfile(SESSIONS_PATH):
+                sessions = JSON.load(SESSIONS_PATH)
+            else:
+                sessions = {}
+
+            session_data["data"] = encrypted_data
+
+            sessions[hashed_session_id] = session_data
+            JSON.dump(sessions, SESSIONS_PATH)
 
 USER_AGENTS = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.3", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.76", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5.1 Safari/605.1.1", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/117.0", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.7", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0"]
 
