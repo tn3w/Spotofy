@@ -96,7 +96,7 @@ class JSON:
 
         :param file_name: The JSON file you want to load
         """
-        
+
         if not os.path.isfile(file_name):
             raise FileNotFoundError("File '" + file_name + "' does not exist.")
         
@@ -606,6 +606,7 @@ def remove_elements(source: dict, elements_to_remove: list):
 CREDENTIALS_PATH = os.path.join(DATA_DIR, "creds.conf")
 TRACKS_CACHE_PATH = os.path.join(CACHE_DIR, "tracks-cache.json")
 ARTISTS_CACHE_PATH = os.path.join(CACHE_DIR, "artists-cache.json")
+PLAYLISTS_CACHE_PATH = os.path.join(CACHE_DIR, "playlists-cache.json")
 
 class Spotofy:
 
@@ -630,7 +631,7 @@ class Spotofy:
         Function to add more data to a track
         """
         
-        tracks = Spotofy._load_tracks()
+        tracks = Spotofy._load(TRACKS_CACHE_PATH)
 
         track = tracks[spotify_track_id]
 
@@ -645,54 +646,31 @@ class Spotofy:
         track["youtube_id"] = get_youtube_id(track_search, spotify_track_id)
         track["theme"] = get_image_color(track["image"])
 
-        tracks = Spotofy._load_tracks()
+        tracks = Spotofy._load(TRACKS_CACHE_PATH)
 
         tracks[spotify_track_id] = track
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
     @staticmethod
-    def _load_tracks() -> dict:
+    def _load(cache_path: str) -> dict:
         """
-        Function to load all tracks
+        Function to load all tracks / artists / playlists
+        :param cache_path: The path to the cache file
         """
 
-        if os.path.isfile(TRACKS_CACHE_PATH):
-            tracks = JSON.load(TRACKS_CACHE_PATH)
-
-            copy_tracks = tracks.copy()
-            for track_id, track_data in tracks.items():
-                if track_data["time"] + 2592000 < int(time()):
-                    del copy_tracks[track_id]
+        if os.path.isfile(cache_path):
+            dictionary = JSON.load(cache_path)
             
-            if len(copy_tracks) != len(tracks):
-                JSON.dump(copy_tracks, TRACKS_CACHE_PATH)
-                tracks = copy_tracks
-        else:
-            tracks = {}
-
-        return tracks
-    
-    @staticmethod
-    def _load_artists() -> dict:
-        """
-        Function to load all artists
-        """
-
-        if os.path.isfile(ARTISTS_CACHE_PATH):
-            artists = JSON.load(ARTISTS_CACHE_PATH)
-
-            copy_artists = artists.copy()
-            for artist_id, artist_data in artists.items():
-                if artist_data["time"] + 2592000 < int(time()):
-                    del copy_artists[artist_id]
+            copy_dictionary = dictionary.copy()
+            for item_id, item_data in dictionary.items():
+                if item_id["time"] + 2592000 < int(time()):
+                    del copy_dictionary[item_data]
             
-            if len(copy_artists) != len(artists):
-                JSON.dump(copy_artists, ARTISTS_CACHE_PATH)
-                artists = copy_artists
-        else:
-            artists = {}
-        
-        return artists
+            if len(copy_dictionary) != len(dictionary):
+                JSON.dump(copy_dictionary, cache_path)
+            
+            return copy_dictionary
+        return {}
     
     def track(self, spotify_track_id: str) -> dict:
         """
@@ -702,7 +680,7 @@ class Spotofy:
         > Data points: artists(id, name), duration_ms, explicit, id, name, image, Optional: youtube_id, theme
         """
 
-        tracks = self._load_tracks()
+        tracks = Spotofy._load(TRACKS_CACHE_PATH)
 
         for track_id, track_data in tracks.items():
             if track_id == spotify_track_id:
@@ -729,7 +707,7 @@ class Spotofy:
         track["artists"] = [remove_elements(artist, ["external_urls", "href", "type", "uri"]) for artist in track["artists"]]
         track["time"] = int(time())
 
-        tracks = self._load_tracks()
+        tracks = Spotofy._load(TRACKS_CACHE_PATH)
 
         tracks[spotify_track_id] = track
         JSON.dump(tracks, TRACKS_CACHE_PATH)
@@ -747,7 +725,7 @@ class Spotofy:
         :param spotify_artist_id: The Spotify artist ID
         """
 
-        artists = self._load_artists()
+        artists = Spotofy._load(ARTISTS_CACHE_PATH)
 
         for artist_id, artist_data in artists.items():
             if artist_id == spotify_artist_id:
@@ -773,7 +751,7 @@ class Spotofy:
         artist["theme"] = get_image_color(artist["image"])
         artist["time"] = int(time())
 
-        artists = self._load_artists()
+        artists = Spotofy._load(ARTISTS_CACHE_PATH)
 
         if spotify_artist_id in artists:
             artists[spotify_artist_id].update(artist)
@@ -792,7 +770,7 @@ class Spotofy:
         :param spotify_artist_id: The Spotify artist ID
         """
 
-        artists = self._load_artists()
+        artists = Spotofy._load(ARTISTS_CACHE_PATH)
 
         for artist_id, artist_data in artists.items():
             if artist_id == spotify_artist_id:
@@ -846,7 +824,7 @@ class Spotofy:
 
         top_tracks_id = [track["id"] for track in artist_top_tracks["tracks"]]
 
-        artists = self._load_artists()
+        artists = Spotofy._load(ARTISTS_CACHE_PATH)
 
         artist = artists.get(spotify_artist_id, None)
         if artist == None:
