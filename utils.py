@@ -841,8 +841,8 @@ class Spotofy:
     
     def playlist(self, spotify_playlist_id: str) -> dict:
         """
-        Gets information about a specific artist
-        :param spotify_artist_id: The Spotify artist ID
+        Gets information about a specific playlist
+        :param spotify_playlist_id: The Spotify playlist ID
         """
 
         playlists = Spotofy._load(PLAYLISTS_CACHE_PATH)
@@ -912,3 +912,33 @@ class Spotofy:
         playlist["tracks"] = playlist_tracks
 
         return playlist
+    
+    def playlist_items(self, spotify_playlist_id: str, limit: int = 100) -> dict:
+        """
+        Function to get tracks in a playlist
+        :param spotify_playlist_id: The Spotify playlist ID
+        :param limit: How many tracks to return
+        """
+
+        raise NotImplementedError("playlist_items has not been implemented yet.")
+    
+    def search(self, q: str, limit: int = 20, type: str = "track,playlist,artist") -> dict:
+        """
+        Function to search for tracks / playlists / artists
+        :param q: What to search for
+        :param limit: How many tracks to return
+        :param type: What types of objects to return
+        """
+
+        raise NotImplementedError("search has not been implemented yet.")
+    
+    def recommendations(self, seed_artists: list = [], seed_genres: list = [], seed_tracks: list = [], limit: int = 30) -> dict:
+        """
+        Function to get track recommendations based on tracks, artists and genres
+        :param seed_artists: Artists on which recommendations should be generated
+        :param seed_genres: Genres on which recommendations should be generated
+        :param seed_tracks: Tracks on which recommendations should be generated
+        :praram limit: How many tracks to return
+        """
+
+        raise NotImplementedError("recommendations has not been implemented yet.")
