@@ -8,10 +8,12 @@ import numpy as np
 from time import time
 from PIL import Image
 from io import BytesIO
-from threading import Lock
 from yt_dlp import YoutubeDL
 from collections import Counter
+from threading import Lock, Thread
+from spotipy import Spotify, client
 from flask import request, g, Response
+from spotipy.oauth2 import SpotifyClientCredentials
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, padding
@@ -94,6 +96,7 @@ class JSON:
 
         :param file_name: The JSON file you want to load
         """
+        
         if not os.path.isfile(file_name):
             raise FileNotFoundError("File '" + file_name + "' does not exist.")
         
@@ -112,6 +115,7 @@ class JSON:
         :param data: The data to be stored should be either dict or list
         :param file_name: The file to save to
         """
+
         file_directory = os.path.dirname(file_name)
         if not os.path.isdir(file_directory):
             raise FileNotFoundError("Directory '" + file_directory + "' does not exist.")
@@ -385,11 +389,12 @@ class Session(dict):
 
 USER_AGENTS = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.3", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.76", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5.1 Safari/605.1.1", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/117.0", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.7", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0"]
 
-def get_image_color(image_url: str) -> str:
+def get_image_color(image_url: str):
     """
     Function to get the main color of an image based on its image url
     :param image_url: The url of the image
     """
+
     response = requests.get(image_url, headers={"User-Agent": random.choice(USER_AGENTS)})
     response.raise_for_status()
     image = Image.open(BytesIO(response.content))
@@ -574,6 +579,7 @@ def get_music(youtube_video_id: str) -> str:
         }],
         "ffmpeg_location": FFMPEG_PATH,
         "duration": 600,
+        "quite": True,
     }
 
     with YoutubeDL(ydl_opts) as ydl:
@@ -585,3 +591,271 @@ def get_music(youtube_video_id: str) -> str:
             return os.path.join(MUSIC_CACHE_DIR, file)
     
     raise Exception("Something went wrong with the YouTube download...")
+
+def remove_elements(source: dict, elements_to_remove: list):
+    """
+    Deletes listed items from a dict
+    :param source: The dict from which things are to be deleted
+    :param elements_to_remove: Things to be deleted from the list
+    """
+
+    for element in elements_to_remove:
+        del source[element]
+    return source
+
+CREDENTIALS_PATH = os.path.join(DATA_DIR, "creds.conf")
+TRACKS_CACHE_PATH = os.path.join(CACHE_DIR, "tracks-cache.json")
+ARTISTS_CACHE_PATH = os.path.join(CACHE_DIR, "artists-cache.json")
+
+class Spotofy:
+
+    def __init__(self):
+        with open(CREDENTIALS_PATH, "r") as file:
+            credentials = file.read().split("---")
+        self.spotify_client_id, self.spotify_client_secret = credentials
+        self._reconnect()
+
+    def _reconnect(self):
+        """
+        Function to (re)connect with the Spotofy Api
+        """
+
+        client_credentials_manager = SpotifyClientCredentials(client_id=self.spotify_client_id, client_secret=self.spotify_client_secret)
+        spotify = Spotify(client_credentials_manager=client_credentials_manager)
+        self.spotify = spotify
+    
+    @staticmethod
+    def _complete_track_data(spotify_track_id: str):
+        """
+        Function to add more data to a track
+        """
+        
+        tracks = Spotofy._load_tracks()
+
+        track = tracks[spotify_track_id]
+
+        track_search = track["name"] + " "
+        for index, artist in enumerate(track["artists"]):
+            if not index == len(track["artists"]) - 1:
+                track_search += artist["name"] + ", "
+            else:
+                track_search += artist["name"] + " "
+        track_search += "Full Lyrics"
+
+        track["youtube_id"] = get_youtube_id(track_search, spotify_track_id)
+        track["theme"] = get_image_color(track["image"])
+
+        tracks = Spotofy._load_tracks()
+
+        tracks[spotify_track_id] = track
+        JSON.dump(tracks, TRACKS_CACHE_PATH)
+
+    @staticmethod
+    def _load_tracks() -> dict:
+        """
+        Function to load all tracks
+        """
+
+        if os.path.isfile(TRACKS_CACHE_PATH):
+            tracks = JSON.load(TRACKS_CACHE_PATH)
+
+            copy_tracks = tracks.copy()
+            for track_id, track_data in tracks.items():
+                if track_data["time"] + 2592000 < int(time()):
+                    del copy_tracks[track_id]
+            
+            if len(copy_tracks) != len(tracks):
+                JSON.dump(copy_tracks, TRACKS_CACHE_PATH)
+                tracks = copy_tracks
+        else:
+            tracks = {}
+
+        return tracks
+    
+    @staticmethod
+    def _load_artists() -> dict:
+        """
+        Function to load all artists
+        """
+
+        if os.path.isfile(ARTISTS_CACHE_PATH):
+            artists = JSON.load(ARTISTS_CACHE_PATH)
+
+            copy_artists = artists.copy()
+            for artist_id, artist_data in artists.items():
+                if artist_data["time"] + 2592000 < int(time()):
+                    del copy_artists[artist_id]
+            
+            if len(copy_artists) != len(artists):
+                JSON.dump(copy_artists, ARTISTS_CACHE_PATH)
+                artists = copy_artists
+        else:
+            artists = {}
+        
+        return artists
+    
+    def track(self, spotify_track_id: str) -> dict:
+        """
+        Gets information about a specific Spotify track
+        :param spotify_track_id: The Spotify track ID
+
+        > Data points: artists(id, name), duration_ms, explicit, id, name, image, Optional: youtube_id, theme
+        """
+
+        tracks = self._load_tracks()
+
+        for track_id, track_data in tracks.items():
+            if track_id == spotify_track_id:
+                del track_data["time"]
+
+                if track_data.get("youtube_id") is None:
+                    thread = Thread(target = self._complete_track_data, args=(spotify_track_id, ))
+                    thread.start()
+
+                return track_data
+        
+        try:
+            track = self.spotify.track(track_id = spotify_track_id)
+        except (client.SpotifyException, ConnectionError):
+            self._reconnect()
+            track = self.spotify.track(track_id = spotify_track_id)
+        
+        try:
+            track["image"] = max(track["album"]["images"], key=lambda x: x['height'])["url"]
+        except:
+            track["image"] = track["album"]["images"][0]["url"]
+        
+        track = remove_elements(track, ["album", "available_markets", "disc_number", "external_ids", "external_urls", "href", "is_local", "popularity", "preview_url", "track_number", "type", "uri"])
+        track["artists"] = [remove_elements(artist, ["external_urls", "href", "type", "uri"]) for artist in track["artists"]]
+        track["time"] = int(time())
+
+        tracks = self._load_tracks()
+
+        tracks[spotify_track_id] = track
+        JSON.dump(tracks, TRACKS_CACHE_PATH)
+
+        thread = Thread(target = self._complete_track_data, args=(spotify_track_id, ))
+        thread.start()
+
+        del track["time"]
+
+        return track
+    
+    def artist(self, spotify_artist_id: str) -> dict:
+        """
+        Gets information about a specific artist
+        :param spotify_artist_id: The Spotify artist ID
+        """
+
+        artists = self._load_artists()
+
+        for artist_id, artist_data in artists.items():
+            if artist_id == spotify_artist_id:
+                if not artist_data.get("followers") is None:                
+                    del artist_data["time"]
+                    if not artist_data.get("top_tracks") is None:
+                        del artist_data["top_tracks"]
+                    return artist_data
+        
+        try:
+            artist = self.spotify.artist(artist_id = spotify_artist_id)
+        except (client.SpotifyException, ConnectionError):
+            self._reconnect()
+            artist = self.spotify.artist(artist_id = spotify_artist_id)
+        
+        try:
+            artist["image"] = max(artist["images"], key=lambda x: x['height'])["url"]
+        except:
+            artist["image"] = artist["album"]["images"][0]["url"]
+        
+        artist = remove_elements(artist, ["external_urls", "popularity", "type", "uri", "href", "images"])
+        artist["followers"] = artist["followers"]["total"]
+        artist["theme"] = get_image_color(artist["image"])
+        artist["time"] = int(time())
+
+        artists = self._load_artists()
+
+        if spotify_artist_id in artists:
+            artists[spotify_artist_id].update(artist)
+        else:
+            artists[spotify_artist_id] = artist
+
+        JSON.dump(artists, ARTISTS_CACHE_PATH)
+
+        del artist["time"]
+
+        return artist
+    
+    def artist_top_tracks(self, spotify_artist_id: str, country: str = "US") -> dict:
+        """
+        Get all top tracks of an artist
+        :param spotify_artist_id: The Spotify artist ID
+        """
+
+        artists = self._load_artists()
+
+        for artist_id, artist_data in artists.items():
+            if artist_id == spotify_artist_id:
+                for top_tracks_country, top_tracks in artist_data.get("top_tracks", dict()).items():
+                    if top_tracks_country == country:
+                        return [self.track(track_id) for track_id in top_tracks]
+        
+        try:
+            artist_top_tracks = self.spotify.artist_top_tracks(artist_id = spotify_artist_id, country = country)
+        except (client.SpotifyException, ConnectionError):
+            self._reconnect()
+            artist_top_tracks = self.spotify.artist_top_tracks(artist_id = spotify_artist_id, country = country)
+        
+        if os.path.isfile(TRACKS_CACHE_PATH):
+            tracks = JSON.load(TRACKS_CACHE_PATH)
+
+            copy_tracks = tracks.copy()
+            for track_id, track_data in tracks.items():
+                if track_data["time"] + 2592000 < int(time()):
+                    del copy_tracks[track_id]
+            
+            if len(copy_tracks) != len(tracks):
+                JSON.dump(copy_tracks, TRACKS_CACHE_PATH)
+                tracks = copy_tracks
+        else:
+            tracks = {}
+
+        top_tracks = []
+        
+        for track in artist_top_tracks["tracks"]:
+            if not track["id"] in tracks:
+                try:
+                    track["image"] = max(track["album"]["images"], key=lambda x: x['height'])["url"]
+                except:
+                    track["image"] = track["album"]["images"][0]["url"]
+                
+                track = remove_elements(track, ["album", "disc_number", "external_ids", "external_urls", "href", "is_local", "popularity", "preview_url", "track_number", "type", "uri", "is_playable"])
+                track["artists"] = [remove_elements(artist, ["external_urls", "href", "type", "uri"]) for artist in track["artists"]]
+
+                top_tracks.append(track)
+
+                track["time"] = int(time())
+
+                tracks[track["id"]] = track
+
+        JSON.dump(tracks, TRACKS_CACHE_PATH)
+
+        for track in artist_top_tracks["tracks"]:
+            thread = Thread(target = self._complete_track_data, args=(track["id"], ))
+            thread.start()
+
+        top_tracks_id = [track["id"] for track in artist_top_tracks["tracks"]]
+
+        artists = self._load_artists()
+
+        artist = artists.get(spotify_artist_id, None)
+        if artist == None:
+            artists[spotify_artist_id] = {
+                "time": time(),
+                "top_tracks": {}
+            }
+
+        artists[spotify_artist_id]["top_tracks"][country] = top_tracks_id
+        JSON.dump(artists, ARTISTS_CACHE_PATH)
+
+        return top_tracks
