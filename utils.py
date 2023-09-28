@@ -663,8 +663,9 @@ class Spotofy:
             
             copy_dictionary = dictionary.copy()
             for item_id, item_data in dictionary.items():
-                if item_id["time"] + 2592000 < int(time()):
-                    del copy_dictionary[item_data]
+                if item_data["time"] + 2592000 < int(time()):
+                    del copy_dictionary[item_id]
+
             
             if len(copy_dictionary) != len(dictionary):
                 JSON.dump(copy_dictionary, cache_path)
@@ -822,7 +823,7 @@ class Spotofy:
             thread = Thread(target = self._complete_track_data, args=(track["id"], ))
             thread.start()
 
-        top_tracks_id = [track["id"] for track in artist_top_tracks["tracks"]]
+        top_tracks_ids = [track["id"] for track in artist_top_tracks["tracks"]]
 
         artists = Spotofy._load(ARTISTS_CACHE_PATH)
 
@@ -833,7 +834,81 @@ class Spotofy:
                 "top_tracks": {}
             }
 
-        artists[spotify_artist_id]["top_tracks"][country] = top_tracks_id
+        artists[spotify_artist_id]["top_tracks"][country] = top_tracks_ids
         JSON.dump(artists, ARTISTS_CACHE_PATH)
 
         return top_tracks
+    
+    def playlist(self, spotify_playlist_id: str) -> dict:
+        """
+        Gets information about a specific artist
+        :param spotify_artist_id: The Spotify artist ID
+        """
+
+        playlists = Spotofy._load(PLAYLISTS_CACHE_PATH)
+
+        for playlist_id, playlist_data in playlists.items():
+            if playlist_id == spotify_playlist_id:
+                del playlist_data["time"]
+                playlist_data["tracks"] = [self.track(track_id) for track_id in playlist_data["tracks"]]
+                return playlist_data
+        
+        try:
+            playlist = self.spotify.playlist(playlist_id = spotify_playlist_id)
+        except (client.SpotifyException, ConnectionError):
+            self._reconnect()
+            playlist = self.spotify.playlist(playlist_id = spotify_playlist_id)
+        
+        try:
+            playlist["image"] = max(playlist["images"], key=lambda x: x['height'])["url"]
+        except:
+            playlist["image"] = playlist["images"][0]["url"]
+        
+        playlist = remove_elements(playlist, ["collaborative", "external_urls", "href", "primary_color", "public", "snapshot_id", "type", "images", "uri"])
+        playlist["followers"] = playlist["followers"]["total"]
+        playlist["owner"] = playlist["owner"]["id"]
+        playlist["theme"] = get_image_color(playlist["image"])
+        playlist["time"] = int(time())
+
+        tracks = Spotofy()._load(TRACKS_CACHE_PATH)
+
+        playlist_tracks = []
+
+        for track in playlist["tracks"]["items"]:
+            track = track["track"]
+            if not track["id"] in tracks:
+                try:
+                    track["image"] = max(track["album"]["images"], key=lambda x: x['height'])["url"]
+                except:
+                    track["image"] = track["album"]["images"][0]["url"]
+
+                track = remove_elements(track, ["available_markets", "disc_number", "episode", "external_ids", "external_urls", "href", "is_local", "popularity", "preview_url", "track", "track_number", "type", "uri", "album"])
+                track["artists"] = [remove_elements(artist, ["external_urls", "href", "type", "uri"]) for artist in track["artists"]]
+
+                playlist_tracks.append(track)
+
+                track["time"] = int(time())
+
+                tracks[track["id"]] = track
+
+        
+        JSON.dump(tracks, TRACKS_CACHE_PATH)
+
+        for track in playlist["tracks"]["items"]:
+            thread = Thread(target = self._complete_track_data, args=(track["track"]["id"], ))
+            thread.start()
+        
+        playlist_tracks_ids = [track["track"]["id"] for track in playlist["tracks"]["items"]]
+
+        playlist["tracks"] = playlist_tracks_ids
+
+        playlists = Spotofy._load(PLAYLISTS_CACHE_PATH)
+
+        playlists[spotify_playlist_id] = playlist
+
+        JSON.dump(playlists, PLAYLISTS_CACHE_PATH)
+
+        del playlist["time"]
+        playlist["tracks"] = playlist_tracks
+
+        return playlist
