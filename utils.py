@@ -9,7 +9,7 @@ import numpy as np
 from time import time
 from PIL import Image
 from io import BytesIO
-from yt_dlp import YoutubeDL
+import yt_dlp
 from collections import Counter
 from threading import Lock, Thread
 from spotipy import Spotify, client
@@ -572,6 +572,8 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
                 return os.path.join(MUSIC_CACHE_DIR, file)
     
     current_time = time()
+
+    yt_dlp.utils.std_headers["User-Agent"] = random.choice(USER_AGENTS)
     
     ydl_opts = {
         "format": "bestaudio/best",
@@ -583,10 +585,12 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
         }],
         "ffmpeg_location": FFMPEG_PATH,
         "duration": 600,
-        "quite": True,
+        "quiet": True,
+        "no_warnings": True,
+        "user_agent": random.choice(USER_AGENTS)
     }
 
-    with YoutubeDL(ydl_opts) as ydl:
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download(["https://www.youtube.com/watch?v=" + youtube_video_id])
 
     output_file = os.path.join(MUSIC_CACHE_DIR, f"{youtube_video_id}++{str(int(current_time))}.mp3")
@@ -600,7 +604,7 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
     ]
 
     try:
-        subprocess.run(cut_command, check=True)
+        subprocess.run(cut_command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except subprocess.CalledProcessError as e:
         # FIXME: Log Error
         pass
