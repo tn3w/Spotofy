@@ -4,6 +4,7 @@ import json
 import random
 import secrets
 import requests
+import subprocess
 import numpy as np
 from time import time
 from PIL import Image
@@ -549,11 +550,20 @@ def get_canvas_url(spotify_track_id: str) -> str:
 MUSIC_CACHE_DIR = os.path.join(CACHE_DIR, "music")
 FFMPEG_CONF_PATH = os.path.join(DATA_DIR, "FFmpeg.conf")
 
-def get_music(youtube_video_id: str) -> str:
+def get_music(youtube_video_id: str, duration_ms: int) -> str:
     """
     Function to get the music file path of a YouTube video
     :param youtube_video_id: The YouTube Video ID
+    :param duration_ms: The length of the music in milliseconds
     """
+
+    def round_up(value: float) -> int:
+        as_integer = int(value)
+        if value > 0:
+            return as_integer + 1 if value - as_integer > 0 else value
+        elif value < 0:
+            return as_integer if value - as_integer == 0 else as_integer + 1
+        return 0
 
     if os.path.isfile(FFMPEG_CONF_PATH):
         with open(FFMPEG_CONF_PATH, "r") as file:
@@ -569,13 +579,15 @@ def get_music(youtube_video_id: str) -> str:
             if file_youtube_id == youtube_video_id:
                 return os.path.join(MUSIC_CACHE_DIR, file)
     
+    current_time = time()
+    
     ydl_opts = {
         "format": "bestaudio/best",
-        "outtmpl": os.path.join(MUSIC_CACHE_DIR, f"{youtube_video_id}++{str(int(time()))}" + ".%(ext)s"),
+        "outtmpl": os.path.join(MUSIC_CACHE_DIR, f"{youtube_video_id}++{str(int(current_time))}" + ".%(ext)s"),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",
-            "preferredquality": "192",
+            "preferredquality": "best",
         }],
         "ffmpeg_location": FFMPEG_PATH,
         "duration": 600,
@@ -584,6 +596,25 @@ def get_music(youtube_video_id: str) -> str:
 
     with YoutubeDL(ydl_opts) as ydl:
         ydl.download(["https://www.youtube.com/watch?v=" + youtube_video_id])
+
+    output_file = os.path.join(MUSIC_CACHE_DIR, f"{youtube_video_id}++{str(int(current_time))}.mp3")
+    
+    cut_command = [
+        FFMPEG_PATH,
+        "-i", output_file,
+        "-t", str(round_up(duration_ms / 1000)),
+        "-c", "copy",
+        output_file.replace(".mp3", "output.mp3")
+    ]
+
+    try:
+        subprocess.run(cut_command, check=True)
+    except subprocess.CalledProcessError as e:
+        # FIXME: Log Error
+        pass
+    else:
+        os.remove(output_file)
+        os.rename(output_file.replace(".mp3", "output.mp3"), output_file)
     
     for file in os.listdir(MUSIC_CACHE_DIR):
         file_youtube_id, file_time = file.split(".")[0].split("++")
@@ -839,10 +870,11 @@ class Spotofy:
 
         return top_tracks
     
-    def playlist(self, spotify_playlist_id: str) -> dict:
+    def playlist(self, spotify_playlist_id: str, limit: int = 100) -> dict:
         """
         Gets information about a specific playlist
         :param spotify_playlist_id: The Spotify playlist ID
+        :param limit: How many tracks to return
         """
 
         playlists = Spotofy._load(PLAYLISTS_CACHE_PATH)
@@ -858,7 +890,13 @@ class Spotofy:
         except (client.SpotifyException, ConnectionError):
             self._reconnect()
             playlist = self.spotify.playlist(playlist_id = spotify_playlist_id)
-        
+
+        try:
+            playlist_tracks_data = self.spotify.playlist_tracks(playlist_id = spotify_playlist_id, limit = limit)
+        except (client.SpotifyException, ConnectionError):
+            self._reconnect
+            playlist_tracks_data = self.spotify.playlist_tracks(playlist_id = spotify_playlist_id, limit = limit)
+
         try:
             playlist["image"] = max(playlist["images"], key=lambda x: x['height'])["url"]
         except:
@@ -874,7 +912,7 @@ class Spotofy:
 
         playlist_tracks = []
 
-        for track in playlist["tracks"]["items"]:
+        for track in playlist_tracks_data["items"]:
             track = track["track"]
             if not track["id"] in tracks:
                 try:
@@ -912,15 +950,6 @@ class Spotofy:
         playlist["tracks"] = playlist_tracks
 
         return playlist
-    
-    def playlist_items(self, spotify_playlist_id: str, limit: int = 100) -> dict:
-        """
-        Function to get tracks in a playlist
-        :param spotify_playlist_id: The Spotify playlist ID
-        :param limit: How many tracks to return
-        """
-
-        raise NotImplementedError("playlist_items has not been implemented yet.")
     
     def search(self, q: str, limit: int = 20, type: str = "track,playlist,artist") -> dict:
         """
