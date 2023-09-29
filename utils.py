@@ -396,12 +396,18 @@ def get_image_color(image_url: str):
     :param image_url: The url of the image
     """
 
+    if not isinstance(image_url, str):
+        return None
+
     response = requests.get(image_url, headers={"User-Agent": random.choice(USER_AGENTS)})
     response.raise_for_status()
     image = Image.open(BytesIO(response.content))
     image_np = np.array(image)
 
-    pixels = image_np.reshape(-1, 3)
+    try:
+        pixels = image_np.reshape(-1, 3)
+    except:
+        return None
 
     color_counts = Counter(map(tuple, pixels))
 
@@ -633,6 +639,8 @@ CREDENTIALS_PATH = os.path.join(DATA_DIR, "creds.conf")
 TRACKS_CACHE_PATH = os.path.join(CACHE_DIR, "tracks-cache.json")
 ARTISTS_CACHE_PATH = os.path.join(CACHE_DIR, "artists-cache.json")
 PLAYLISTS_CACHE_PATH = os.path.join(CACHE_DIR, "playlists-cache.json")
+SEARCH_CACHE_PATH = os.path.join(CACHE_DIR, "search-cache.json")
+
 class Spotofy:
 
     def __init__(self):
@@ -643,7 +651,7 @@ class Spotofy:
 
     def _reconnect(self):
         """
-        Function to (re)connect with the Spotofy Api
+        Function to (re)connect with the Spotify Api
         """
 
         client_credentials_manager = SpotifyClientCredentials(client_id=self.spotify_client_id, client_secret=self.spotify_client_secret)
@@ -681,7 +689,7 @@ class Spotofy:
     def _add_theme(spotify_id: str, cache_path: str) -> None:
         """
         Function to add the theme color to artists / playlists
-        :param spotofy_id: The Spotofy ID from the playlist or artist
+        :param spotofy_id: The Spotify ID from the playlist or artist
         :param cache_path: The path to the cache file
         """
         
@@ -694,6 +702,7 @@ class Spotofy:
 
         dictionary[spotify_id] = item
         JSON.dump(dictionary, cache_path)
+
     @staticmethod
     def _load(cache_path: str) -> dict:
         """
@@ -731,7 +740,7 @@ class Spotofy:
                 del track_data["time"]
 
                 if track_data.get("youtube_id") is None or track_data.get("theme") is None:
-                    thread = Thread(target = self._complete_track_data, args=(spotify_track_id, ))
+                    thread = Thread(target = self._complete_track_data, args = (spotify_track_id, ))
                     thread.start()
 
                 return track_data
@@ -756,7 +765,7 @@ class Spotofy:
         tracks[spotify_track_id] = track
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
-        thread = Thread(target = self._complete_track_data, args=(spotify_track_id, ))
+        thread = Thread(target = self._complete_track_data, args = (spotify_track_id, ))
         thread.start()
 
         del track["time"]
@@ -788,7 +797,7 @@ class Spotofy:
         try:
             artist["image"] = max(artist["images"], key=lambda x: x['height'])["url"]
         except:
-            artist["image"] = artist["album"]["images"][0]["url"]
+            artist["image"] = artist["images"][0]["url"]
         
         artist = remove_elements(artist, ["external_urls", "popularity", "type", "uri", "href", "images"])
         artist["followers"] = artist["followers"]["total"]
@@ -803,7 +812,7 @@ class Spotofy:
 
         JSON.dump(artists, ARTISTS_CACHE_PATH)
 
-        thread = Thread(target = self._add_theme, args=(spotify_artist_id, ARTISTS_CACHE_PATH, ))
+        thread = Thread(target = self._add_theme, args = (spotify_artist_id, ARTISTS_CACHE_PATH, ))
         thread.start()
 
         del artist["time"]
@@ -865,7 +874,7 @@ class Spotofy:
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
         for track in artist_top_tracks["tracks"]:
-            thread = Thread(target = self._complete_track_data, args=(track["id"], ))
+            thread = Thread(target = self._complete_track_data, args = (track["id"], ))
             thread.start()
 
         top_tracks_ids = [track["id"] for track in artist_top_tracks["tracks"]]
@@ -952,7 +961,7 @@ class Spotofy:
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
         for track in playlist["tracks"]["items"]:
-            thread = Thread(target = self._complete_track_data, args=(track["track"]["id"], ))
+            thread = Thread(target = self._complete_track_data, args = (track["track"]["id"], ))
             thread.start()
 
         playlist["tracks"] = [track["track"]["id"] for track in playlist["tracks"]["items"]]
@@ -963,7 +972,7 @@ class Spotofy:
 
         JSON.dump(playlists, PLAYLISTS_CACHE_PATH)
 
-        thread = Thread(target = self._add_theme, args=(spotify_playlist_id, PLAYLISTS_CACHE_PATH, ))
+        thread = Thread(target = self._add_theme, args = (spotify_playlist_id, PLAYLISTS_CACHE_PATH, ))
         thread.start()
 
         del playlist["time"]
@@ -974,15 +983,136 @@ class Spotofy:
 
         return playlist
     
-    def search(self, q: str, limit: int = 20, type: str = "track,playlist,artist") -> dict:
+    def search(self, q: str, limit: int = 20, types: list = ["track", "playlist", "artist"]) -> dict:
         """
         Function to search for tracks / playlists / artists
         :param q: What to search for
         :param limit: How many tracks to return
-        :param type: What types of objects to return
+        :param types: What types of objects to return
         """
 
-        raise NotImplementedError("search has not been implemented yet.")
+        searchs = Spotofy._load(SEARCH_CACHE_PATH)
+
+        for search_q, search_data in searchs.items():
+            if search_q == q:
+                del search_data["time"]
+                
+                if "track" in types:
+                    search_data["tracks"] = [self.track(track_id) for track_id in search_data["tracks"][:limit]]
+                else:
+                    del search_data["tracks"]
+
+                if "playlist" in types:
+                    search_data["playlists"] = [self.playlist(playlist_id, limit=0) for playlist_id in search_data["playlists"][:limit]]
+                else:
+                    del search_data["playlists"]
+                
+                if "artist" in types:
+                    search_data["artists"] = [self.artist(artist_id) for artist_id in search_data["artists"][:limit]]
+                else:
+                    del search_data["artists"]
+                
+                return search_data
+        
+        try:
+            search = self.spotify.search(q, limit, type = "track,playlist,artist")
+        except:
+            self._reconnect()
+            search = self.spotify.search(q, limit, type = "track,playlist,artist")
+        
+        tracks = Spotofy._load(TRACKS_CACHE_PATH)
+
+        search_tracks = []
+        for track in search["tracks"]["items"]:
+            try:
+                track["image"] = max(track["album"]["images"], key=lambda x: x['height'])["url"]
+            except:
+                track["image"] = track["album"]["images"][0]["url"]
+
+            track = remove_elements(track, ["available_markets", "disc_number", "external_ids", "external_urls", "href", "is_local", "popularity", "preview_url", "track_number", "type", "uri", "album"])
+            track["artists"] = [remove_elements(artist, ["external_urls", "href", "type", "uri"]) for artist in track["artists"]]
+
+            search_tracks.append(track)
+
+            track["time"] = int(time())
+
+            tracks[track["id"]] = track
+
+        JSON.dump(tracks, TRACKS_CACHE_PATH)
+
+        for track in search["tracks"]["items"]:
+            thread = Thread(target = self._complete_track_data, args = (track["id"], ))
+            thread.start()
+        
+        artists = Spotofy._load(ARTISTS_CACHE_PATH)
+        
+        search_artists = []
+        for artist in search["artists"]["items"]:
+            try:
+                artist["image"] = max(artist["images"], key=lambda x: x['height'])["url"]
+            except:
+                try:
+                    artist["image"] = artist["images"][0]["url"]
+                except:
+                    artist["image"] = None
+            
+            artist = remove_elements(artist, ["external_urls", "popularity", "type", "uri", "href", "images"])
+            artist["followers"] = artist["followers"]["total"]
+
+            search_artists.append(artist)
+
+            artist["time"] = int(time())
+
+            artists[artist["id"]] = artist
+        
+        JSON.dump(artists, ARTISTS_CACHE_PATH)
+
+        for artist in search["artists"]["items"]:
+            thread2 = Thread(target = self._add_theme, args = (artist["id"], ARTISTS_CACHE_PATH, ))
+            thread2.start()
+
+        playlists = Spotofy._load(PLAYLISTS_CACHE_PATH)
+
+        search_playlists = []
+        for playlist in search["playlists"]["items"]:
+            try:
+                playlist["image"] = max(playlist["images"], key=lambda x: x['height'])["url"]
+            except:
+                playlist["image"] = playlist["images"][0]["url"]
+
+            playlist = remove_elements(playlist, ["collaborative", "external_urls", "href", "primary_color", "public", "snapshot_id", "type", "images", "uri"])
+            playlist["owner"] = playlist["owner"]["id"]
+
+            search_playlists.append(playlist)
+
+            playlist["time"] = int(time())
+
+            playlists[playlist["id"]] = playlist
+        
+        JSON.dump(playlists, PLAYLISTS_CACHE_PATH)
+
+        for playlist in search["playlists"]["items"]:
+            thread3 = Thread(target = self._add_theme, args = (playlist["id"], PLAYLISTS_CACHE_PATH, ))
+            thread3.start()
+
+        search_ids = {
+            "time": int(time()),
+            "tracks": [track["id"] for track in search_tracks],
+            "artists": [artist["id"] for artist in search_artists],
+            "playlists": [playlist["id"] for playlist in search_playlists]
+        }
+        
+        searchs = Spotofy._load(SEARCH_CACHE_PATH)
+        searchs[q] = search_ids
+        JSON.dump(searchs, SEARCH_CACHE_PATH)
+
+        search = {
+            "tracks": search_tracks,
+            "artists": search_artists,
+            "playlists": search_playlists
+        }
+
+        return search
     
     def recommendations(self, seed_artists: list = [], seed_genres: list = [], seed_tracks: list = [], limit: int = 30) -> dict:
         """
