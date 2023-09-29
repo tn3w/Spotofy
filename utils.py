@@ -792,7 +792,6 @@ class Spotofy:
         
         artist = remove_elements(artist, ["external_urls", "popularity", "type", "uri", "href", "images"])
         artist["followers"] = artist["followers"]["total"]
-        artist["theme"] = get_image_color(artist["image"])
         artist["time"] = int(time())
 
         artists = Spotofy._load(ARTISTS_CACHE_PATH)
@@ -803,6 +802,9 @@ class Spotofy:
             artists[spotify_artist_id] = artist
 
         JSON.dump(artists, ARTISTS_CACHE_PATH)
+
+        thread = Thread(target = self._add_theme, args=(spotify_artist_id, ARTISTS_CACHE_PATH, ))
+        thread.start()
 
         del artist["time"]
 
@@ -843,14 +845,14 @@ class Spotofy:
             tracks = {}
 
         top_tracks = []
-        
+
         for track in artist_top_tracks["tracks"]:
             if not track["id"] in tracks:
                 try:
                     track["image"] = max(track["album"]["images"], key=lambda x: x['height'])["url"]
                 except:
                     track["image"] = track["album"]["images"][0]["url"]
-                
+
                 track = remove_elements(track, ["album", "disc_number", "external_ids", "external_urls", "href", "is_local", "popularity", "preview_url", "track_number", "type", "uri", "is_playable"])
                 track["artists"] = [remove_elements(artist, ["external_urls", "href", "type", "uri"]) for artist in track["artists"]]
 
@@ -894,33 +896,39 @@ class Spotofy:
         for playlist_id, playlist_data in playlists.items():
             if playlist_id == spotify_playlist_id:
                 del playlist_data["time"]
-                playlist_data["tracks"] = [self.track(track_id) for track_id in playlist_data["tracks"]]
+                if limit == 0:
+                    del playlist_data["tracks"]
+                else:
+                    # Add the tracks to be added
+                    playlist_data["tracks"] = [self.track(track_id) for track_id in playlist_data["tracks"][:limit]]
                 return playlist_data
-        
+
         try:
             playlist = self.spotify.playlist(playlist_id = spotify_playlist_id)
         except (client.SpotifyException, ConnectionError):
             self._reconnect()
             playlist = self.spotify.playlist(playlist_id = spotify_playlist_id)
 
-        try:
-            playlist_tracks_data = self.spotify.playlist_tracks(playlist_id = spotify_playlist_id, limit = limit)
-        except (client.SpotifyException, ConnectionError):
-            self._reconnect
-            playlist_tracks_data = self.spotify.playlist_tracks(playlist_id = spotify_playlist_id, limit = limit)
+        if limit == 0:
+            playlist_tracks_data = []
+        else:
+            try:
+                playlist_tracks_data = self.spotify.playlist_tracks(playlist_id = spotify_playlist_id, limit = limit)
+            except (client.SpotifyException, ConnectionError):
+                self._reconnect
+                playlist_tracks_data = self.spotify.playlist_tracks(playlist_id = spotify_playlist_id, limit = limit)
 
         try:
             playlist["image"] = max(playlist["images"], key=lambda x: x['height'])["url"]
         except:
             playlist["image"] = playlist["images"][0]["url"]
-        
+
         playlist = remove_elements(playlist, ["collaborative", "external_urls", "href", "primary_color", "public", "snapshot_id", "type", "images", "uri"])
         playlist["followers"] = playlist["followers"]["total"]
         playlist["owner"] = playlist["owner"]["id"]
-        playlist["theme"] = get_image_color(playlist["image"])
         playlist["time"] = int(time())
 
-        tracks = Spotofy()._load(TRACKS_CACHE_PATH)
+        tracks = Spotofy._load(TRACKS_CACHE_PATH)
 
         playlist_tracks = []
 
@@ -941,16 +949,13 @@ class Spotofy:
 
                 tracks[track["id"]] = track
 
-        
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
         for track in playlist["tracks"]["items"]:
             thread = Thread(target = self._complete_track_data, args=(track["track"]["id"], ))
             thread.start()
-        
-        playlist_tracks_ids = [track["track"]["id"] for track in playlist["tracks"]["items"]]
 
-        playlist["tracks"] = playlist_tracks_ids
+        playlist["tracks"] = [track["track"]["id"] for track in playlist["tracks"]["items"]]
 
         playlists = Spotofy._load(PLAYLISTS_CACHE_PATH)
 
@@ -958,8 +963,14 @@ class Spotofy:
 
         JSON.dump(playlists, PLAYLISTS_CACHE_PATH)
 
+        thread = Thread(target = self._add_theme, args=(spotify_playlist_id, PLAYLISTS_CACHE_PATH, ))
+        thread.start()
+
         del playlist["time"]
         playlist["tracks"] = playlist_tracks
+
+        if limit == 0:
+            del playlist["tracks"]
 
         return playlist
     
