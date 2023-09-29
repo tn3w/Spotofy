@@ -557,14 +557,6 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
     :param duration_ms: The length of the music in milliseconds
     """
 
-    def round_up(value: float) -> int:
-        as_integer = int(value)
-        if value > 0:
-            return as_integer + 1 if value - as_integer > 0 else value
-        elif value < 0:
-            return as_integer if value - as_integer == 0 else as_integer + 1
-        return 0
-
     if os.path.isfile(FFMPEG_CONF_PATH):
         with open(FFMPEG_CONF_PATH, "r") as file:
             FFMPEG_PATH = file.read()
@@ -602,7 +594,7 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
     cut_command = [
         FFMPEG_PATH,
         "-i", output_file,
-        "-t", str(round_up(duration_ms / 1000)),
+        "-t", str(round(duration_ms / 1000)),
         "-c", "copy",
         output_file.replace(".mp3", "output.mp3")
     ]
