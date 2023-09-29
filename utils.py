@@ -696,10 +696,11 @@ class Spotofy:
             return copy_dictionary
         return {}
     
-    def track(self, spotify_track_id: str) -> dict:
+    def track(self, spotify_track_id: str, without_complete_data: bool = False) -> dict:
         """
         Gets information about a specific Spotify track
         :param spotify_track_id: The Spotify track ID
+        :param without_complete_data: If True, no thread to complete the data is created
 
         > Data points: artists(id, name), duration_ms, explicit, id, name, image, Optional: youtube_id, theme
         """
@@ -710,7 +711,7 @@ class Spotofy:
             if track_id == spotify_track_id:
                 del track_data["time"]
 
-                if track_data.get("youtube_id") is None:
+                if track_data.get("youtube_id") is None or track_data.get("theme") is None:
                     thread = Thread(target = self._complete_track_data, args=(spotify_track_id, ))
                     thread.start()
 
@@ -736,8 +737,9 @@ class Spotofy:
         tracks[spotify_track_id] = track
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
-        thread = Thread(target = self._complete_track_data, args=(spotify_track_id, ))
-        thread.start()
+        if not without_complete_data:
+            thread = Thread(target = self._complete_track_data, args=(spotify_track_id, ))
+            thread.start()
 
         del track["time"]
 
