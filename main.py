@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request, send_file
 import os
 import spotipy
 import logging
@@ -6,9 +6,10 @@ import subprocess
 import platform
 import zipfile
 import shutil
+from time import time
 import requests
 from spotipy.oauth2 import SpotifyClientCredentials
-from utils import Session
+from utils import Session, Spotofy, JSON, get_music, get_youtube_id
 
 if not __name__ == "__main__":
     exit()
@@ -35,6 +36,7 @@ if not os.path.isdir(MUSIC_CACHE_DIR):
 
 CREDENTIALS_PATH = os.path.join(DATA_DIR, "creds.conf")
 FFMPEG_CONF_PATH = os.path.join(DATA_DIR, "FFmpeg.conf")
+TRACKS_CACHE_PATH = os.path.join(CACHE_DIR, "tracks-cache.json")
 SYSTEM = platform.system()
 
 if not os.path.isfile(FFMPEG_CONF_PATH):
@@ -159,6 +161,41 @@ log.setLevel(logging.WARNING)
 @app.route("/")
 def index():
     return "Hello World!"
+
+@app.route("/api/music")
+def api_music():
+    spotify_id = request.args.get("spotify_id")
+    if spotify_id == None:
+        return {"status_code": 400, "error": "Bad Request - The spotify_id parameter is not given."}, 400
+    
+    if len(spotify_id) != 22:
+        return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_id is incorrect."}, 400
+    
+    tracks = Spotofy._load(TRACKS_CACHE_PATH)
+    if tracks.get(spotify_id) is None:
+        try:
+            track = Spotofy().track(spotify_id)
+        except:
+            return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_id is incorrect."}, 400
+    else:
+        track = tracks.get(spotify_id)
+    
+    if track.get("youtube_id") is None:
+        track_search = track["name"] + " "
+        for index, artist in enumerate(track["artists"]):
+            if not index == len(track["artists"]) - 1:
+                track_search += artist["name"] + ", "
+            else:
+                track_search += artist["name"] + " "
+        track_search += "Full Lyrics"
+
+        youtube_id = get_youtube_id(track_search, spotify_id)
+    else:
+        youtube_id = track.get("youtube_id")
+
+    music_path = get_music(youtube_id, track["duration_ms"])
+
+    return send_file(music_path)
 
 os.system('cls' if os.name == 'nt' else 'clear')
 print(LOGO)
