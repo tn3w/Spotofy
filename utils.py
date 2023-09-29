@@ -599,7 +599,6 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
         FFMPEG_PATH,
         "-i", output_file,
         "-t", str(round(duration_ms / 1000) - 1),
-        "-c", "copy",
         output_file.replace(".mp3", "output.mp3")
     ]
 
