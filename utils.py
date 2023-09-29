@@ -634,7 +634,6 @@ CREDENTIALS_PATH = os.path.join(DATA_DIR, "creds.conf")
 TRACKS_CACHE_PATH = os.path.join(CACHE_DIR, "tracks-cache.json")
 ARTISTS_CACHE_PATH = os.path.join(CACHE_DIR, "artists-cache.json")
 PLAYLISTS_CACHE_PATH = os.path.join(CACHE_DIR, "playlists-cache.json")
-
 class Spotofy:
 
     def __init__(self):
@@ -653,9 +652,10 @@ class Spotofy:
         self.spotify = spotify
     
     @staticmethod
-    def _complete_track_data(spotify_track_id: str):
+    def _complete_track_data(spotify_track_id: str) -> None:
         """
         Function to add more data to a track
+        :param spotify_track_id: The Spotify track ID
         """
         
         tracks = Spotofy._load(TRACKS_CACHE_PATH)
@@ -677,7 +677,24 @@ class Spotofy:
 
         tracks[spotify_track_id] = track
         JSON.dump(tracks, TRACKS_CACHE_PATH)
+    
+    @staticmethod
+    def _add_theme(spotify_id: str, cache_path: str) -> None:
+        """
+        Function to add the theme color to artists / playlists
+        :param spotofy_id: The Spotofy ID from the playlist or artist
+        :param cache_path: The path to the cache file
+        """
+        
+        dictionary = Spotofy._load(cache_path)
 
+        item = dictionary[spotify_id]
+        item["theme"] = get_image_color(item["image"])
+
+        dictionary = Spotofy._load(cache_path)
+
+        dictionary[spotify_id] = item
+        JSON.dump(dictionary, cache_path)
     @staticmethod
     def _load(cache_path: str) -> dict:
         """
