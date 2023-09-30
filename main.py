@@ -199,4 +199,5 @@ def api_music():
 
 os.system('cls' if os.name == 'nt' else 'clear')
 print(LOGO)
+print("Running on http://localhost:8080")
 app.run(host = "localhost", port = 8080)
