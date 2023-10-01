@@ -11,8 +11,10 @@
 # Spotofy
 Spotofy is a free music player client without ads to listen to and download your favorite music.
 
+<br>
 > [!WARNING]
 > This is an early alpha version, there may be serious bugs / features may not work properly yet.
+<br>
 
 ## Installation
 
@@ -30,6 +32,7 @@ Spotofy is a free music player client without ads to listen to and download your
    ```bash
    python main.py
    ```
+
 
 ## Targets
 - Approximately the same functionality as Spotify
