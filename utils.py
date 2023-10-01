@@ -639,7 +639,8 @@ CREDENTIALS_PATH = os.path.join(DATA_DIR, "creds.conf")
 TRACKS_CACHE_PATH = os.path.join(CACHE_DIR, "tracks-cache.json")
 ARTISTS_CACHE_PATH = os.path.join(CACHE_DIR, "artists-cache.json")
 PLAYLISTS_CACHE_PATH = os.path.join(CACHE_DIR, "playlists-cache.json")
-SEARCH_CACHE_PATH = os.path.join(CACHE_DIR, "search-cache.json")
+SEARCHS_CACHE_PATH = os.path.join(CACHE_DIR, "searchs-cache.json")
+RECOMMENDATIONS_CACHE_PATH = os.path.join(CACHE_DIR, "recommendations-cache.json")
 
 class Spotofy:
 
@@ -823,6 +824,7 @@ class Spotofy:
         """
         Get all top tracks of an artist
         :param spotify_artist_id: The Spotify artist ID
+        :param country: The country code of the client in ISO-3166-1 format
         """
 
         artists = Spotofy._load(ARTISTS_CACHE_PATH)
@@ -991,7 +993,7 @@ class Spotofy:
         :param types: What types of objects to return
         """
 
-        searchs = Spotofy._load(SEARCH_CACHE_PATH)
+        searchs = Spotofy._load(SEARCHS_CACHE_PATH)
 
         for search_q, search_data in searchs.items():
             if search_q == q:
@@ -1102,9 +1104,9 @@ class Spotofy:
             "playlists": [playlist["id"] for playlist in search_playlists]
         }
         
-        searchs = Spotofy._load(SEARCH_CACHE_PATH)
+        searchs = Spotofy._load(SEARCHS_CACHE_PATH)
         searchs[q] = search_ids
-        JSON.dump(searchs, SEARCH_CACHE_PATH)
+        JSON.dump(searchs, SEARCHS_CACHE_PATH)
 
         search = {
             "tracks": search_tracks,
@@ -1114,13 +1116,70 @@ class Spotofy:
 
         return search
     
-    def recommendations(self, seed_artists: list = [], seed_genres: list = [], seed_tracks: list = [], limit: int = 30) -> dict:
+    def recommendations(self, seed_artists: list = [], seed_genres: list = [], seed_tracks: list = [], limit: int = 30, country: str = "US") -> dict:
         """
         Function to get track recommendations based on tracks, artists and genres
         :param seed_artists: Artists on which recommendations should be generated
         :param seed_genres: Genres on which recommendations should be generated
         :param seed_tracks: Tracks on which recommendations should be generated
-        :praram limit: How many tracks to return
+        :param limit: How many tracks to return
+        :param country: The country code of the client in ISO-3166-1 format
         """
 
-        raise NotImplementedError("recommendations has not been implemented yet.")
+        recommendations = Spotofy._load(RECOMMENDATIONS_CACHE_PATH)
+
+        total_seeds = seed_artists + seed_genres + seed_tracks
+
+        for seeds, recommendation_data in recommendations.items():
+            if seeds == ''.join(total_seeds):
+                del recommendation_data["time"]
+                return [self.track(track_id) for track_id in recommendation_data["tracks"][:limit]]
+
+        if len(total_seeds) > 5:
+            generated_seeds = random.sample(seed_artists + seed_genres + seed_tracks, 4)
+            
+            while len(set(generated_seeds)) < 5:
+                generated_seeds = random.sample(seed_artists + seed_genres + seed_tracks, 4)
+
+            seed_artists = [seed for seed in generated_seeds if seed in seed_artists]
+            seed_genres = [seed for seed in generated_seeds if seed in seed_genres]
+            seed_tracks = [seed for seed in generated_seeds if seed in seed_tracks]
+
+        try:
+            recommendation = self.spotify.recommendations(seed_artists, seed_genres, seed_tracks, 40, country)
+        except:
+            self._reconnect()
+            recommendation = self.spotify.recommendations(seed_artists, seed_genres, seed_tracks, 40, country)
+        
+        tracks = Spotofy._load(TRACKS_CACHE_PATH)
+
+        recommendation_tracks = []
+        for track in recommendation["tracks"]:
+            try:
+                track["image"] = max(track["album"]["images"], key=lambda x: x['height'])["url"]
+            except:
+                track["image"] = track["album"]["images"][0]["url"]
+
+            track = remove_elements(track, ["disc_number", "external_ids", "external_urls", "href", "is_local", "popularity", "preview_url", "track_number", "type", "uri", "album"])
+            track["artists"] = [remove_elements(artist, ["external_urls", "href", "type", "uri"]) for artist in track["artists"]]
+
+            recommendation_tracks.append(track)
+
+            track["time"] = int(time())
+
+            tracks[track["id"]] = track
+        
+        JSON.dump(tracks, TRACKS_CACHE_PATH)
+
+        for track in recommendation["tracks"]:
+            thread = Thread(target = self._complete_track_data, args = (track["id"], ))
+            thread.start()
+
+        recommendations = Spotofy._load(RECOMMENDATIONS_CACHE_PATH)
+        recommendations[''.join(total_seeds)] = {
+            "time": int(time()),
+            "tracks": [track["id"] for track in recommendation["tracks"]]
+        }
+        JSON.dump(recommendations, RECOMMENDATIONS_CACHE_PATH)
+
+        return recommendation_tracks
