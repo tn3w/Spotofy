@@ -1,0 +1,9 @@
+flask
+requests
+spotipy
+numpy
+Pillow
+yt-dlp
+cryptography
+jinja2
+protobuf
