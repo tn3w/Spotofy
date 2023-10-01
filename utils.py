@@ -659,6 +659,14 @@ class Spotofy:
         spotify = Spotify(client_credentials_manager=client_credentials_manager)
         self.spotify = spotify
     
+    @property
+    def country_codes(self) -> list:
+        """
+        Returns all country codes
+        """
+        
+        return self.spotify.country_codes
+    
     @staticmethod
     def _complete_track_data(spotify_track_id: str) -> None:
         """
