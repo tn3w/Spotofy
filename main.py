@@ -6,10 +6,9 @@ import subprocess
 import platform
 import zipfile
 import shutil
-from time import time
 import requests
 from spotipy.oauth2 import SpotifyClientCredentials
-from utils import Session, Spotofy, JSON, get_music, get_youtube_id
+from utils import Session, Spotofy, get_music, get_youtube_id
 
 if not __name__ == "__main__":
     exit()
@@ -37,6 +36,8 @@ if not os.path.isdir(MUSIC_CACHE_DIR):
 CREDENTIALS_PATH = os.path.join(DATA_DIR, "creds.conf")
 FFMPEG_CONF_PATH = os.path.join(DATA_DIR, "FFmpeg.conf")
 TRACKS_CACHE_PATH = os.path.join(CACHE_DIR, "tracks-cache.json")
+ARTISTS_CACHE_PATH = os.path.join(CACHE_DIR, "artists-cache.json")
+PLAYLISTS_CACHE_PATH = os.path.join(CACHE_DIR, "playlists-cache.json")
 SYSTEM = platform.system()
 
 if not os.path.isfile(FFMPEG_CONF_PATH):
@@ -158,27 +159,96 @@ app.after_request(Session._after_request)
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.WARNING)
 
+spotofy = Spotofy()
+
 @app.route("/")
 def index():
     return "Hello World!"
 
+@app.route("/api/track")
+def api_track():
+    spotify_track_id = request.args.get("spotify_track_id")
+
+    if spotify_track_id is None:
+        return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
+    
+    if len(spotify_track_id) != 22:
+        return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
+    
+    tracks = spotofy._load(TRACKS_CACHE_PATH)
+    if tracks.get(spotify_track_id) is None:
+        try:
+            track = spotofy.track(spotify_track_id)
+        except:
+            return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
+    else:
+        track = tracks.get(spotify_track_id)
+    
+    return track
+
+@app.route("/api/artist")
+def api_artist():
+    spotify_artist_id = request.args.get("spotify_artist_id")
+
+    if spotify_artist_id is None:
+        return {"status_code": 400, "error": "Bad Request - The spotify_artist_id parameter is not given."}, 400
+    
+    if len(spotify_artist_id) != 22:
+        return {"status_code": 400, "error": "Bad Request - The Spotify artist ID given in spotify_artist_id is incorrect."}, 400
+    
+    artists = spotofy._load(ARTISTS_CACHE_PATH)
+    if artists.get(spotify_artist_id) is None:
+        try:
+            return spotofy.artist(spotify_artist_id)
+        except:
+            return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
+    else:
+        return artists.get(spotify_artist_id)
+
+@app.route("/api/playlist")
+def api_playlist():
+    spotify_playlist_id = request.args.get("spotify_playlist_id")
+    limit = request.args.get("limit")
+
+    if spotify_playlist_id is None:
+        return {"status_code": 400, "error": "Bad Request - The spotify_artist_id parameter is not given."}, 400
+    
+    if limit is None:
+        limit = 100
+    else:
+        try:
+            if int(limit) > 100:
+                return {"status_code": 400, "error": "Bad Request - The limit parameter must not be greater than 100."}, 400
+        except:
+            return {"status_code": 400, "error": "Bad Request - The limit parameter must be an integer."}, 400
+    
+    playlists = spotofy._load(PLAYLISTS_CACHE_PATH)
+    if playlists.get(spotify_playlist_id) is None:
+        try:
+            return spotofy.playlist(spotify_playlist_id, limit)
+        except:
+            return {"status_code": 400, "error": "Bad Request - The Spotify playlist ID given in spotify_playlist_id is incorrect."}, 400
+    else:
+        return playlists.get(spotify_playlist_id)
+    
 @app.route("/api/music")
 def api_music():
-    spotify_id = request.args.get("spotify_id")
-    if spotify_id == None:
-        return {"status_code": 400, "error": "Bad Request - The spotify_id parameter is not given."}, 400
+    spotify_track_id = request.args.get("spotify_track_id")
+
+    if spotify_track_id is None:
+        return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
     
-    if len(spotify_id) != 22:
-        return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_id is incorrect."}, 400
+    if len(spotify_track_id) != 22:
+        return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
     
-    tracks = Spotofy._load(TRACKS_CACHE_PATH)
-    if tracks.get(spotify_id) is None:
+    tracks = spotofy._load(TRACKS_CACHE_PATH)
+    if tracks.get(spotify_track_id) is None:
         try:
-            track = Spotofy().track(spotify_id)
+            track = spotofy.track(spotify_track_id)
         except:
-            return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_id is incorrect."}, 400
+            return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
     else:
-        track = tracks.get(spotify_id)
+        track = tracks.get(spotify_track_id)
     
     if track.get("youtube_id") is None:
         track_search = track["name"] + " "
@@ -189,7 +259,7 @@ def api_music():
                 track_search += artist["name"] + " "
         track_search += "Full Lyrics"
 
-        youtube_id = get_youtube_id(track_search, spotify_id)
+        youtube_id = get_youtube_id(track_search, spotify_track_id)
     else:
         youtube_id = track.get("youtube_id")
 
