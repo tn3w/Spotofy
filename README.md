@@ -28,7 +28,12 @@ Spotofy is a free music player client without ads to listen to and download your
    cd Spotofy
    ```
 
-3. Run the application.
+3. Install all requirements
+   ```bash
+   python -m pip install -r requirements.txt
+   ```
+
+5. Run the application.
    ```bash
    python main.py
    ```
