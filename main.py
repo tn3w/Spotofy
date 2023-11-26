@@ -43,15 +43,32 @@ SYSTEM = platform.system()
 if not os.path.isfile(FFMPEG_CONF_PATH):
     try:
         with open(os.devnull, 'w') as devnull:
-            subprocess.call(["ffmpeg", "-version"], stdout=devnull, stderr=devnull)
+            subprocess.call(["ffmpeg", "--version"], stdout=devnull, stderr=devnull)
     except OSError:
         os.system('cls' if os.name == 'nt' else 'clear')
         print(LOGO)
         print("-- FFmpeg is not installed --")
         if SYSTEM not in ["Windows", "Darwin", "Linux"]:
-            print("Operating system not found...\n\nPlease install FFmpeg by following the instructions on the following web page for your operating system:\nhttps://ffmpeg.org/download.html")
-            print('Unzip the downloaded "7z" or "zip" file, and go into the unzipped folder and search for the "ffmpeg.exe" file, now copy the path of this file and enter it below.')
-            FFMPEG_PATH = input("[FFMPEG PATH]: ")
+            while True:
+                print("Operating system not found...\n\nPlease install FFmpeg by following the instructions on the following web page for your operating system:\nhttps://ffmpeg.org/download.html")
+                print('Unzip the downloaded "7z" or "zip" file, and go into the unzipped folder and search for the "ffmpeg.<extension>" file, now copy the path of this file and enter it below.')
+                FFMPEG_PATH = input("[FFMPEG PATH]: ")
+                FFMPEG_PATH = FFMPEG_PATH.strip()
+                if FFMPEG_PATH == "":
+                    print("\n[Error] You have not given a path.")
+                    input("Enter: ")
+                if not os.path.isfile(FFMPEG_PATH):
+                    print("\n[Error] The specified path does not exist.")
+                    input("Enter: ")
+                else:
+                    try:
+                        with open(os.devnull, 'w') as devnull:
+                            subprocess.call([FFMPEG_PATH, "--version"], stdout=devnull, stderr=devnull)
+                    except OSError:
+                        print("\n[Error] The given FFMPEG does not work properly.")
+                        input("Enter: ")
+                    else:
+                        break
         elif SYSTEM == "Windows":
             WINDOWS_FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
             FFMPEG_ARCHIVE_PATH = os.path.join(DATA_DIR, "ffmpeg.zip")
