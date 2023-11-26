@@ -8,7 +8,7 @@ import zipfile
 import shutil
 import requests
 from spotipy.oauth2 import SpotifyClientCredentials
-from utils import Session, Spotofy, get_music, get_youtube_id
+from utils import Session, Spotofy, Linux, get_music, get_youtube_id
 
 if not __name__ == "__main__":
     exit()
@@ -108,11 +108,7 @@ if not os.path.isfile(FFMPEG_CONF_PATH):
 
             FFMPEG_PATH = os.path.join(DATA_DIR, "ffmpeg")
         else:
-            print("~ Linux installation instructions ~")
-            print("Now open a console and enter the commands below based on your Linux distro, after installation, restart this Python script and you should be able to start!")
-            print("Ubuntu/Debian:\nsudo apt-get update\nsudo apt-get install ffmpeg\n\nCentOS/RHEL:\nsudo yum install epel-release\nsudo yum install ffmpeg\n\nFedora:\nsudo dnf install ffmpeg\n\nArch Linux:\nsudo pacman -S ffmpeg\n\nopenSUSE:\nsudo zypper install ffmpeg\n\nGeneric Linux (with snap)\nsudo snap install ffmpeg")
-            input("\nEnter: ")
-            exit()
+            Linux.install_package("ffmpeg")
         
         with open(FFMPEG_CONF_PATH, "w") as file:
             file.write(FFMPEG_PATH)

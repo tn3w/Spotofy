@@ -10,6 +10,7 @@ from time import time
 from PIL import Image
 from io import BytesIO
 import yt_dlp
+import distro
 from collections import Counter
 from threading import Lock, Thread
 from spotipy import Spotify, client
@@ -388,6 +389,85 @@ class Session(dict):
             sessions[hashed_session_id] = session_data
             JSON.dump(sessions, SESSIONS_PATH)
 
+
+DISTRO_TO_PACKAGE_MANAGER = {
+    "ubuntu": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "debian": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "fedora": {"installation_command": "dnf install", "update_command": "dnf upgrade"},
+    "centos": {"installation_command": "yum install", "update_command": "yum update"},
+    "arch": {"installation_command": "pacman -S", "update_command": "pacman -Syu"},
+    "opensuse": {"installation_command": "zypper install", "update_command": "zypper update"},
+    "linuxmint": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "gentoo": {"installation_command": "emerge", "update_command": "emerge --sync"},
+    "rhel": {"installation_command": "yum install", "update_command": "yum update"},
+    "kali": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "tails": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "zorin": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "mx": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "solus": {"installation_command": "eopkg install", "update_command": "eopkg up"},
+    "antergos": {"installation_command": "pacman -S", "update_command": "pacman -Syu"},
+    "lubuntu": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "xubuntu": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+}
+PACKAGE_MANAGERS = [
+    {"version_command": "apt-get --version", "installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    {"version_command": "dnf --version", "installation_command": "dnf install", "update_command": "dnf upgrade"},
+    {"version_command": "yum --version", "installation_command": "yum install", "update_command": "yum update"},
+    {"version_command": "pacman --version", "installation_command": "pacman -S", "update_command": "pacman -Syu"},
+    {"version_command": "zypper --version", "installation_command": "zypper install", "update_command": "zypper update"},
+    {"version_command": "emerge --version", "installation_command": "emerge", "update_command": "emerge --sync"},
+    {"version_command": "eopkg --version", "installation_command": "eopkg install", "update_command": "eopkg up"}
+]
+
+class Linux:
+    "Collection of functions that have something to do with Linux"
+
+    @staticmethod
+    def get_package_manager() -> Tuple[Optional[str], Optional[str]]:
+        "Returns the Packet Manager install command and the update command"
+
+        distro_id = distro.id()
+
+        package_manager = DISTRO_TO_PACKAGE_MANAGER.get(distro_id, {"installation_command": None, "update_command": None})
+
+        installation_command, update_command = package_manager["installation_command"], package_manager["update_command"]
+        
+        if None in [installation_command, update_command]:
+            for package_manager in PACKAGE_MANAGERS:
+                try:
+                    subprocess.check_call(package_manager["version_command"], shell=True)
+                except:
+                    pass
+                else:
+                    installation_command, update_command = package_manager["installation_command"], package_manager["update_command"]
+        
+        return installation_command, update_command
+    
+    @staticmethod
+    def install_package(package_name: str) -> None:
+        """
+        Attempts to install a Linux package
+        
+        :param package_name: Name of the Linux packet
+        """
+        
+        installation_command, update_command = Linux.get_package_manager()
+
+        if not None in [installation_command, update_command]:
+            try:
+                update_process = subprocess.Popen("sudo " + update_command, shell=True)
+                update_process.wait()
+            except Exception as e:
+                print(f"[Error]Error using update Command while installing linux package '{package_name}': '{e}'")
+            
+            install_process = subprocess.Popen(f"sudo {installation_command} {package_name} -y", shell=True)
+            install_process.wait()
+        
+        else:
+            raise Exception("No package manager found!")
+
+        return None
+
 USER_AGENTS = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.3", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.76", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5.1 Safari/605.1.1", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/117.0", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.7", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0"]
 
 def get_image_color(image_url: str):
@@ -565,9 +645,9 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
 
     if os.path.isfile(FFMPEG_CONF_PATH):
         with open(FFMPEG_CONF_PATH, "r") as file:
-            FFMPEG_PATH = file.read()
+            ffmpeg_path = file.read()
     else:
-        FFMPEG_PATH = "ffmpeg"
+        ffmpeg_path = "ffmpeg"
 
     for file in os.listdir(MUSIC_CACHE_DIR):
         file_youtube_id, file_time = file.split(".")[0].split("++")
@@ -589,7 +669,7 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
             "preferredcodec": "mp3",
             "preferredquality": "best",
         }],
-        "ffmpeg_location": FFMPEG_PATH,
+        "ffmpeg_location": ffmpeg_path,
         "duration": 600,
         "quiet": True,
         "no_warnings": True,
@@ -602,7 +682,7 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
     output_file = os.path.join(MUSIC_CACHE_DIR, f"{youtube_video_id}++{str(int(current_time))}.mp3")
     
     cut_command = [
-        FFMPEG_PATH,
+        ffmpeg_path,
         "-i", output_file,
         "-t", str(round(duration_ms / 1000) - 1),
         output_file.replace(".mp3", "output.mp3")
