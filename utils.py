@@ -769,10 +769,15 @@ class Spotofy:
                 track_search += artist["name"] + " "
         track_search += "Full Lyrics"
 
-        track["youtube_id"] = get_youtube_id(track_search, spotify_track_id)
-        track["theme"] = get_image_color(track["image"])
+        youtube_id = get_youtube_id(track_search, spotify_track_id)
+        image_theme = get_image_color(track["image"])
 
         tracks = Spotofy._load(TRACKS_CACHE_PATH)
+
+        track = tracks[spotify_track_id]
+
+        track["youtube_id"] = youtube_id
+        track["theme"] = image_theme
 
         tracks[spotify_track_id] = track
         JSON.dump(tracks, TRACKS_CACHE_PATH)
