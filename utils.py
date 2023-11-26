@@ -647,7 +647,7 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
         with open(FFMPEG_CONF_PATH, "r") as file:
             ffmpeg_path = file.read()
     else:
-        ffmpeg_path = "ffmpeg"
+        ffmpeg_path = None
 
     for file in os.listdir(MUSIC_CACHE_DIR):
         file_youtube_id, file_time = file.split(".")[0].split("++")
@@ -680,6 +680,9 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
         ydl.download(["https://www.youtube.com/watch?v=" + youtube_video_id])
 
     output_file = os.path.join(MUSIC_CACHE_DIR, f"{youtube_video_id}++{str(int(current_time))}.mp3")
+    
+    if ffmpeg_path is None:
+        ffmpeg_path = "ffmpeg"
     
     cut_command = [
         ffmpeg_path,
