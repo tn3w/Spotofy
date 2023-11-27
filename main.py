@@ -8,7 +8,7 @@ import zipfile
 import shutil
 import requests
 from spotipy.oauth2 import SpotifyClientCredentials
-from utils import Session, Spotofy, Linux, get_music, get_youtube_id
+from utils import Session, Spotofy, Linux, get_music, get_youtube_id, render_template
 
 if not __name__ == "__main__":
     exit()
@@ -21,6 +21,7 @@ LOGO = """   _____             __        ____
     /_/                        /____/\n"""
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.join(CURRENT_DIR, "templates")
 DATA_DIR = os.path.join(CURRENT_DIR, "data")
 if not os.path.isdir(DATA_DIR):
     os.mkdir(DATA_DIR)
@@ -180,7 +181,19 @@ spotofy = Spotofy()
 
 @app.route("/")
 def index():
-    return "Hello World!"
+    test_sections = [
+        {
+            "name": "Hi",
+            "tracks": [
+                {
+                    "image": "https://i.scdn.co/image/ab67616d0000b273d76f86578e0214e7579f75fc",
+                    "name": "Cipher",
+                    "description": "LEMMiNO"
+                }
+            ]
+        }
+    ]
+    return render_template(os.path.join(TEMPLATE_DIR, "index.html"), sections=test_sections)
 
 @app.route("/api/track")
 def api_track():
