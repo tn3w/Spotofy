@@ -127,8 +127,12 @@ if not os.path.isfile(FFMPEG_CONF_PATH):
         else:
             Linux.install_package("ffmpeg")
         
-        with open(FFMPEG_CONF_PATH, "w") as file:
-            file.write(FFMPEG_PATH)
+        try:
+            FFMPEG_PATH
+            with open(FFMPEG_CONF_PATH, "w") as file:
+                file.write(FFMPEG_PATH)
+        except:
+            pass
         os.system('cls' if os.name == 'nt' else 'clear')
 
 if not os.path.isfile(CREDENTIALS_PATH):
