@@ -188,7 +188,7 @@ def index():
                 {
                     "image": "https://i.scdn.co/image/ab67616d0000b273d76f86578e0214e7579f75fc",
                     "name": "Cipher",
-                    "artist": "LEMMiNO"
+                    "artists": "LEMMiNO"
                 }
             ]
         }
