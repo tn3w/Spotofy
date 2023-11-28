@@ -252,10 +252,12 @@
                             if (!response.ok) {
                                 throw new Error('Network response was not ok');
                             }
-                            return response.json();
+                            return response.blob();
                         })
-                        .then(data => {
-                            musicPlayer.src = data.music;
+                        .then(blob => {
+                            const audioUrl = URL.createObjectURL(blob);
+                            musicPlayer.src = audioUrl;
+
                             playMusic();
                         })
                         .catch(error => {
