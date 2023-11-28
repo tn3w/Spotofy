@@ -255,8 +255,8 @@
                         var songBox = this.closest('.song-box');
 
                         var trackImage = songBox.querySelector('.image-container .img').getAttribute('src');
-                        var trackName = songBox.querySelector('song-details h3').textContent;
-                        var trackArtist = songBox.querySelector('song-details p').textContent;
+                        var trackName = songBox.querySelector('.song-details h3').textContent;
+                        var trackArtist = songBox.querySelector('.song-details p').textContent;
 
                         playbarTrackImage.src = trackImage;
                         playbarTrackName.textContent = trackName;
