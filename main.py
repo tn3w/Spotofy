@@ -187,8 +187,8 @@ def index():
             "tracks": [
                 {
                     "image": "https://i.scdn.co/image/ab67616d0000b273d76f86578e0214e7579f75fc",
-                    "title": "Cipher",
-                    "description": "LEMMiNO"
+                    "name": "Cipher",
+                    "artist": "LEMMiNO"
                 }
             ]
         }
