@@ -183,12 +183,13 @@ spotofy = Spotofy()
 def index():
     test_sections = [
         {
-            "name": "Hi",
+            "title": "Hi",
             "tracks": [
                 {
                     "image": "https://i.scdn.co/image/ab67616d0000b273d76f86578e0214e7579f75fc",
                     "name": "Cipher",
-                    "artists": "LEMMiNO"
+                    "artists": "LEMMiNO",
+                    "id": "1ov4hZO5md2qGjtEIUCTK0"
                 }
             ]
         }

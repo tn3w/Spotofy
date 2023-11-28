@@ -242,6 +242,35 @@
         </style>
         <script>
             document.addEventListener('DOMContentLoaded', function() {
+                let musicPlayer = new Audio();
+
+                function startPlayer(trackId) {
+                    const apiUrl = "/api/music?spotify_track_id=" + trackId;
+
+                    fetch(apiUrl)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            musicPlayer.src = data.music;
+                            playMusic();
+                        })
+                        .catch(error => {
+                            console.error('Error during fetch operation:', error);
+                        });
+                }
+
+                function playMusic() {
+                    if (musicPlayer.paused) {
+                        musicPlayer.play();
+                    } else {
+                        musicPlayer.currentTime = 0;
+                    }
+                }
+
                 var playbar = document.getElementById("playbar");
                 var playbarTrackImage = document.getElementById("playbar-track-image");
                 var playbarTrackName = document.getElementById("playbar-track-name");
@@ -263,6 +292,8 @@
                         playbarTrackArtist.textContent = trackArtist;
 
                         playbar.style.display = "flex";
+
+                        startPlayer(trackId);
                     };
                 }
             });
