@@ -252,12 +252,11 @@
                     play_icons[i].onclick = function() {
                         var trackID = this.getAttribute('track-id');
 
-                        var imageContainer = this.closest('.image-container');
-                        var songDetails = this.closest('.song-details');
+                        var songBox = this.closest('.song-box');
 
-                        var trackImage = imageContainer.querySelector('.img').getAttribute('src');
-                        var trackName = songDetails.querySelector('h3').textContent;
-                        var trackArtist = songDetails.querySelector('p').textContent;
+                        var trackImage = imageContainer.querySelector('.image-container .img').getAttribute('src');
+                        var trackName = songBox.querySelector('song-details h3').textContent;
+                        var trackArtist = songBox.querySelector('song-details p').textContent;
 
                         playbarTrackImage.src = trackImage;
                         playbarTrackName.textContent = trackName;
