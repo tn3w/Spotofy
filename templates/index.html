@@ -308,7 +308,7 @@
             
             function setCookie(name, content) {
                 const secureFlag = window.location.protocol === "https:" ? "; secure" : "";
-                const sameSiteFlag = "; samesite=None";
+                const sameSiteFlag = "; samesite=Lax";
                 const cookieString = encodeURIComponent(name) + "=" + encodeURIComponent(content) + secureFlag + sameSiteFlag + "; path=/";
 
                 document.cookie = cookieString;
