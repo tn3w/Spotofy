@@ -308,8 +308,7 @@
             
             function setCookie(name, content) {
                 const secureFlag = window.location.protocol === "https:" ? "; secure" : "";
-                const sameSiteFlag = "; samesite=Lax";
-                const cookieString = encodeURIComponent(name) + "=" + encodeURIComponent(content) + secureFlag + sameSiteFlag + "; path=/";
+                const cookieString = encodeURIComponent(name) + "=" + encodeURIComponent(content) + secureFlag + "; samesite=Lax; max-age=94608000; path=/";
 
                 document.cookie = cookieString;
             }
