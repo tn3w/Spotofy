@@ -338,11 +338,13 @@
 
                 cookieAcceptButton.onclick = function() {
                     setCookie("use_cookies", "1");
+                    cookieBanner.style.display = "none";
                 };
                 cookieAcceptDecline.onclick = function() {
                     deleteAllCookies();
                     setCookie("use_cookies", "0");
                     useCookies = false;
+                    cookieBanner.style.display = "none";
                 };
 
                 /* Music elements */
