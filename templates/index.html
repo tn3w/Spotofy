@@ -336,14 +336,15 @@
                 }
                 var useCookies = getCookie("use_cookies", "1") === "1";
                 var cookieAcceptButton = document.getElementById("cookie-banner-accept");
-                var cookieAcceptDecline = document.getElementById("cookie-banner-decline");
+                var cookieDeclineButton = document.getElementById("cookie-banner-decline");
 
                 cookieAcceptButton.onclick = function() {
                     setCookie("use_cookies", "1");
                     cookieBanner.style.display = "none";
                     elements.style.filter = "none";
                 };
-                cookieAcceptDecline.onclick = function() {
+                
+                cookieDeclineButton.onclick = function() {
                     deleteAllCookies();
                     setCookie("use_cookies", "0");
                     useCookies = false;
