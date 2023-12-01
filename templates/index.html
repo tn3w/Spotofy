@@ -227,6 +227,28 @@
                 margin-top: 10px;
             }
 
+            #playbar-statusbar-container {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                height: 100%;
+            }
+
+            #playbar-statusbar-container p {
+                margin: 5px;
+                color: #fff;
+                flex: 1;
+                text-align: center;
+            }
+
+            #playbar-statusbar-container p:first-child {
+                text-align: left;
+            }
+
+            #playbar-statusbar-container p:last-child {
+                text-align: right;
+            }
+
             .icon {
                 width: 32px;
                 height: 32px;
@@ -243,12 +265,18 @@
                 height: 26px;
             }
 
+            #status-bar {
+                width: 200px;
+                height: 15px;
+                background-color: #282828;
+                border-radius: 7.5px;
+            }
+
             #playbar-status-bar {
+                background-color: #777;
                 width: 100%;
                 height: 15px;
-                background-color: #333;
                 border-radius: 7.5px;
-                margin-top: 10px;
             }
 
             #playbar-volume-slider {
@@ -357,6 +385,27 @@
                 const audioUrlCache = {};
                 let musicPlayer = new Audio();
                 var playbarActionsStart = document.getElementById("playbar-start");
+                const progressBar = document.getElementById('playbar-status-bar');
+                const timeText = document.getElementById('time-text');
+                const durationText = document.getElementById('duration-text');
+
+                function formatTime(time) {
+                    const minutes = Math.floor(time / 60);
+                    const seconds = Math.floor(time % 60);
+                    const formattedTime = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                    return formattedTime;
+                }
+
+                function musicUpdateStatus () {
+                    const progress = (musicPlayer.currentTime / musicPlayer.duration) * 100;
+                    progressBar.style.width = progress + '%';
+
+                    const currentTime = formatTime(musicPlayer.currentTime);
+                    timeText.textContent = currentTime;
+
+                    const totalDuration = formatTime(musicPlayer.duration);
+                    durationText.textContent = totalDuration;
+                }
 
                 function startPlayer(trackId) {
                     if (audioUrlCache[trackId]) {
@@ -379,6 +428,8 @@
                             audioUrlCache[trackId] = audioUrl;
 
                             musicPlayer.src = audioUrl;
+
+                            musicPlayer.addEventListener('timeupdate', musicUpdateStatus);
 
                             playMusic();
                         })
@@ -520,7 +571,13 @@
                         <img id="playbar-next" class="icon smaller-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA4xNqnz540AAAITSURBVFjDxZc9S2tBFEXXXBIQC0EQwUILKwMSBBVsIoiVlZWVGCVqCFZ2qe3iL5AYEQsR1MZCLAI2gqQRTHGxEgWx8AOigggqzn5FEh7hkbzE3HB3O2dmr7MPDDMAyEYi0tWV9PgobW3J9vbSAkmxmFQoSF9f0va2ZAyywaB0d6cKvb5K8/PeA7y9VfoMDSGFQqome3Ii9fR4Y27Mv+ePjzuoq6vqLjM1Bfm8ND3dipEAOGBM7ZLubjg6kj04kDo7WwBQp8zMTDGNiQl/AADo64PTUymdltrbfQCA4sjicbi4kB0Z8QGgrFAIk8tJqZRsMOgDAEAgAMkk5vxcGhjwAaCs0VG4vJSSSclp6EyPAADa2iCVQtlsI1e5hwAlmclJjOtK8bg/AAB0dEA6LZvJSLUvuhYBlNNYWoJEwj8AAGZnfQbwcwQA7O35CLCzAxsbPgB8fMDqKsRixlhbqzLgvXkuh6JR41xf11PtYQLf37C2BpFIveYeJuC6MDdnTD7f6M4mE/j5gfV1NDz8G/MmE7i9RQsLxjk7a6aFXyQgweYmCoebNf9FAg8PaHnZOMfHzRo3noAOD2Fw0EvzUgJS7ZJCAVZWjLO/76XxXwDz9FR9OZtFi4vGub9vhTkAsoGAdHNT+Wd7f5cSif89Jhr20stLpU84XFoYG5Nct/h13t2V+vtb02w0Kvv8LH1+ymYyAH8A/k5KY9VbTu8AAAAASUVORK5CYII=">
                         <img id="playbar-loop" class="icon smaller-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA46FehgTzQAAAIRSURBVFjD7ZW/SitBFMa/k1zZQolFsLURQ5TttPAB7AS7BBQURKyiaGdhwNaXCETs1iewsRJ8ACOCBrTVQoWNmkWYz2LwbpLF7M5mLoGLp9mZYfZ8v/NnZoBf+9+Mqlqlct3hAZAkfZ+qVBoiAEkqRR4dkdlsv/0S73B0FJieBiYnQceJJRDP6144OwNWV0Wenw0jKRbJep18e+OgpppNMp9PLq62tqwIJwCQqPj6OuT4OFxpNADPA+/vgSBIV4KVFZGXlwSRFwpku62xPz/JSoWU2D7pLp1ZE/b8XK+HDioVE+FugBTHkMpxyCDQDq6uTCMP/aS8iKjm58PoDw/TiPfPzNISeXpKzs312fBdvrU1+wB3d9r5xUXneiYctlrheHzcNgBwfa2/CwtUExNRAN7cAEoBAGRx0bo+z8/1IJsFisUIgGSenoDLSz2bmbGfgdfXv0MZG4tmAACwuwt4HrC3Z11fpqbCyeOj8f9UrktVrabRJkXIRkM34ccH1ciIoXipRPo+SaYCUNvb4Qmr1QzJ9/f1tarNPPKdHX2tk2S7TVUodO758zN1LgecnADLy73ZiJd2HF3zchmYnf3GATY3JXN7m4A8n9dPqK3nuNUiNzYMUmcLwPeparXetHfajw8OVS4HiZYALJdjI5AgAB8eIM2myPt74sijmRisCa3ZoMfQEoTrkgcHQwP4tX9lXx31pqKtbFk+AAAAAElFTkSuQmCC">
                     </div>
-                    <div id="playbar-status-bar"></div>
+                    <div id="playbar-statusbar-container">
+                        <p id="time-text">0:00</p>
+                        <div id="status-bar">
+                            <div id="playbar-status-bar"></div>
+                        </div>
+                        <p id="duration-text">3:20</p>
+                    </div>
                 </div>
                 <div id="playbar-volume-slider">
                     <span>🔈</span>
