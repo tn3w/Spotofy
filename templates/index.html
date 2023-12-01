@@ -14,6 +14,52 @@
                 margin: 0;
             }
 
+            #cookie-banner {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background-color: #2b2b2b; /* Darker background color for the banner */
+                padding: 20px;
+                border-radius: 10px;
+                text-align: center;
+                max-width: 400px;
+            }
+
+            #cookie-banner h1 {
+                font-size: 1.5em;
+                margin-bottom: 15px;
+            }
+
+            #cookie-banner p {
+                font-size: 1em;
+                line-height: 1.5;
+                margin-bottom: 20px;
+            }
+
+            #cookie-banner .btn-container {
+                display: flex;
+                justify-content: space-around;
+            }
+
+            #cookie-banner .btn-container .btn-accept,
+            #cookie-banner .btn-container .btn-reject {
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1em;
+                color: #fff;
+            }
+
+            #cookie-banner .btn-container .btn-accept {
+                background-color: #00FF7E;
+            }
+
+            #cookie-banner .btn-container .btn-reject {
+                background-color: #555;
+            }
+
             header {
                 display: flex;
                 justify-content: space-between;
@@ -266,10 +312,40 @@
                 document.cookie = cookieString;
             }
 
+            function deleteAllCookies() {
+                const cookies = document.cookie.split(';');
+
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i];
+                    const eqPos = cookie.indexOf('=');
+                    const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                    document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+                }
+            }
+
             var playImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA4tGn1c1jMAAAHpSURBVFjDxZe/LwNxGMaf95vGGRkwS2ps2sRm83MxNroZWSQNiYTBYLzBYGUwSCz9Awyi2kkkQqSd5EowMjAQJPU+hnMEqdb1fnzGu3vzfvLemzd5gA/ITIZ6fEw+P5OVCjWfp1oWooBqWeTNDX+iFxdkNhuBwPg4/0JLJTKTCVFgZoZNqdepm5vU3t7gBTg311zAm8bjI7m6SnZ2xiPwieNQp6ba7W38lyaTkEKBPDigptMxCHgMD0NOT8ntbT/7EYAAABgDTE9Dzs/JpaX/3I+ABDy6ugDbhlSrre5HwAIeAwOQQoG6v09NpWIQ+EBGR9392Nig9vRELwAASCSA2dmv/ejoiFjAo7vb3Y/DQ7K/PwYBj8FBYG/Pu6QxCABAMglMTsYoAABkjAKOA+zuxiRwcgJMTIi8vEQscH8PLC+DQ0MiV1fe00T4jet1YGsLXFkRc3f38224AiwWgYUFMdVqo09C+gWOA+ZyYsbG/moewgQeHgDbBtfXxby+tlIRkIAqsLMDLi6Kub39T2UAAqUSOD8vplLxU93GDtRqYC4nMjLit7m/CfDpCbK2Bti2GPeYtE1rweTtzQ0mfX2BNP0u0CSasVwOOZpZFnl9/bvx5WUk4dSVSKepR0du9Do7o+bzgcavBrwDGNDmye1Tl8sAAAAASUVORK5CYII=";
             var pauseImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA4wDHbkD34AAAD1SURBVFjD7Zc7DsIwEEQ3QUTKGRB9CIi78TkBAiEkrsPnHFAkpyBuCZIfRUrbQUaIaqf0zHiftluRHsF0CtcrGAN1DasVpGk4Pxhg1+suawxcLlCW8o1gNILHA0fbbbiz37t5Y7DjcTyAPR7x6vmEPHeH5zm0rb9zOITmBNcpyWzmN7JMpCjc96IQGQ79nfk8HkCyLLwej0dk/jPAf6QACqAACqAACqAACqAACqAAPQBtG7QSj5dE5j8CcL+HwarKfa9rkdfL37ndolcTPk43m3Bnt/vZcdp9WJbY8xmaBltVsFj0n+dpCstll20aOJ1gMumb8QbBJP8CHOcxuQAAAABJRU5ErkJggg==";
 
             document.addEventListener('DOMContentLoaded', function() {
+                /* Cookie elements */
+                var cookieBanner = document.getElementById("cookie-banner");
+                if (getCookie("use_cookies") === null) {
+                    cookieBanner.style.display = "block";
+                }
+                var useCookies = getCookie("use_cookies", "1") === "1";
+                var cookieAcceptButton = document.getElementById("cookie-banner-accept");
+                var cookieAcceptDecline = document.getElementById("cookie-banner-decline");
+
+                cookieAcceptButton.onclick = function() {
+                    setCookie("use_cookies", "1");
+                };
+                cookieAcceptDecline.onclick = function() {
+                    deleteAllCookies();
+                    setCookie("use_cookies", "0");
+                    useCookies = false;
+                };
+
+                /* Music elements */
                 const audioUrlCache = {};
                 let musicPlayer = new Audio();
                 var playbarActionsStart = document.getElementById("playbar-start");
@@ -346,6 +422,18 @@
         </script>
     </head>
     <body>
+        <div id="cookie-banner" style="display:none;">
+            <h1>🍪 This site uses cookies</h1>
+            <p>
+              This site only uses cookies that are used for the function, e.g., to suggest music.
+              If you press "Do not allow," only your decision will be saved, but you will also not receive music suggestions.
+            </p>
+            <div class="btn-container">
+              <button id="cookie-banner-accept" class="btn-accept">Accept</button>
+              <button id="cookie-banner-decline" class="btn-reject">Do not allow</button>
+            </div>
+        </div>
+
         <header>
             <a href="/">
                 <div class="left-section">
