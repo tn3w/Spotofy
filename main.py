@@ -184,14 +184,7 @@ def index():
     test_sections = [
         {
             "title": "Hi",
-            "tracks": [
-                {
-                    "image": "https://i.scdn.co/image/ab67616d0000b273d76f86578e0214e7579f75fc",
-                    "name": "Cipher",
-                    "artists": "LEMMiNO",
-                    "id": "1ov4hZO5md2qGjtEIUCTK0"
-                }
-            ]
+            "tracks": [spotofy.track("54ipXppHLA8U4yqpOFTUhr"), spotofy.track("2nG54Y4a3sH9YpfxMolOyi"), spotofy.track("6xZ4Q2k2ompmDppyeESIY8"), spotofy.track("0HqZX76SFLDz2aW8aiqi7G"), spotofy.track("4PUkO0ZuMrvWmetMTbEhCN")]
         }
     ]
     return render_template(os.path.join(TEMPLATE_DIR, "index.html"), sections=test_sections)
