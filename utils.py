@@ -518,10 +518,10 @@ def get_ip_info(ip_address: str) -> dict:
 
 def before_request_get_info():
     g.ip_address = get_client_ip()
-    #try:
-    g.info = get_ip_info(g.ip_address)
-    #except:
-        #g.info = {"continent":"North America","continentCode":"NA","country":"United States","countryCode":"US","region":"CA","regionName":"California","city":"Los Angeles","district":"Downtown","zip":"90001","lat":34.0522,"lon":-118.2437,"timezone":"America/Los_Angeles","offset":-28800,"currency":"USD","isp":"AT&T","org":"AT&T Services, Inc.","as":"AS7018 AT&T Services, Inc.","asname":"AT&T","reverse":"cpe-192-180-220-1.socal.res.rr.com","mobile":False,"proxy":False,"hosting":False}
+    try:
+        g.info = get_ip_info(g.ip_address)
+    except:
+        g.info = {"continent":"North America","continentCode":"NA","country":"United States","countryCode":"US","region":"CA","regionName":"California","city":"Los Angeles","district":"Downtown","zip":"90001","lat":34.0522,"lon":-118.2437,"timezone":"America/Los_Angeles","offset":-28800,"currency":"USD","isp":"AT&T","org":"AT&T Services, Inc.","as":"AS7018 AT&T Services, Inc.","asname":"AT&T","reverse":"cpe-192-180-220-1.socal.res.rr.com","mobile":False,"proxy":False,"hosting":False}
     
 
 DISTRO_TO_PACKAGE_MANAGER = {
