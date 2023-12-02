@@ -1,10 +1,6 @@
-```_____             __        ____     
-  / ___/____  ____  / /_____  / __/_  __
-  \__ \/ __ \/ __ \/ __/ __ \/ /_/ / / /
- ___/ / /_/ / /_/ / /_/ /_/ / __/ /_/ / 
-/____/ .___/\____/\__/\____/_/  \__, /  
-    /_/                        /____/
-```
+<picture>
+  <img alt="Screenshot of Spotofy" src="https://github.com/tn3w/Spotofy/releases/download/addingscreenshot/screenshot_from_spotofy.png">
+</picture>
 <p align="center"><a rel="noreferrer noopener" href="http://tn3wtor4vgnrimugptubpaqsf2gc4pcsktknkxt74w7p5yzbt7rwrkid.onion/projects/Spotofy"><img alt="Backup 1" src="https://img.shields.io/badge/Backup%201-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>  <a rel="noreferrer noopener" href="http://tn3wvjimrn3hydx4u52kzfnkgu6kffef2js27ewlhdf5htulno34vqad.onion/projects/Spotofy"><img alt="Backup 2" src="https://img.shields.io/badge/Backup%202-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>  <a rel="noreferrer noopener" href="http://tn3wtor7cfz3epmuetrhkj3mangjxqpd47lxxicfwwdwja6dwq6dbdad.onion/projects/Spotofy"><img alt="Backup 3" src="https://img.shields.io/badge/Backup%203-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>
 
 # Spotofy
