@@ -2,6 +2,7 @@ import os
 import re
 import json
 import random
+import ipaddress
 import secrets
 import requests
 import subprocess
@@ -24,6 +25,7 @@ from canvas_pb2 import EntityCanvazRequest, EntityCanvazResponse
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from typing import Union, Optional, Tuple
+import hashlib
 
 def generate_random_string(length: int, with_punctuation: bool = True, with_letters: bool = True):
     """
@@ -91,16 +93,21 @@ def render_template(file_name: str, **args) -> str:
 file_locks = dict()
 
 class JSON:
+    "Class for loading / saving JavaScript Object Notation (= JSON)"
 
-    def load(file_name: str) -> Union[dict, list]:
+    @staticmethod
+    def load(file_name: str, default: Union[dict, list] = dict()) -> Union[dict, list]:
         """
         Function to load a JSON file securely.
 
         :param file_name: The JSON file you want to load
+        :param default: Returned if no data was found
         """
 
         if not os.path.isfile(file_name):
-            raise FileNotFoundError("File '" + file_name + "' does not exist.")
+            if isinstance(default, list):
+                return list()
+            return dict()
         
         if file_name not in file_locks:
             file_locks[file_name] = Lock()
@@ -109,7 +116,8 @@ class JSON:
             with open(file_name, "r") as file:
                 data = json.load(file)
             return data
-        
+    
+    @staticmethod
     def dump(data: Union[dict, list], file_name: str) -> None:
         """
         Function to save a JSON file securely.
@@ -389,6 +397,132 @@ class Session(dict):
             sessions[hashed_session_id] = session_data
             JSON.dump(sessions, SESSIONS_PATH)
 
+class FastHashing:
+    "Implementation for fast hashing"
+
+    def __init__(self, salt: Optional[str] = None):
+        ":param salt: The salt, makes the hashing process more secure (Optional)"
+
+        self.salt = salt
+    
+    def hash(self, plain_text: str, hash_length: int = 8) -> str:
+        """
+        Function to hash a plaintext
+
+        :param plain_text: The text to be hashed
+        :param hash_length: The length of the returned hashed value
+        """
+
+        salt = self.salt
+        if salt is None:
+            salt = secrets.token_hex(hash_length)
+        plain_text = salt + plain_text
+        
+        hash_object = hashlib.sha256(plain_text.encode())
+        hex_dig = hash_object.hexdigest()
+
+        return hex_dig + "//" + salt
+    
+    def compare(self, plain_text: str, hash: str) -> bool:
+        """
+        Compares a plaintext with a hashed value
+
+        :param plain_text: The text that was hashed
+        :param hash: The hashed value
+        """
+        
+        salt = self.salt
+        if "//" in hash:
+            hash, salt = hash.split("//")
+        
+        hash_length = len(hash)
+
+        comparison_hash = FastHashing(salt=salt).hash(plain_text, hash_length = hash_length).split("//")[0]
+
+        return comparison_hash == hash
+
+def get_client_ip() -> str:
+    "Get the client IP in v4 or v6"
+
+    def shorten_ipv6(ip_address):
+        try:
+            return str(ipaddress.IPv6Address(ip_address).compressed)
+        except:
+            return ip_address
+    
+    headers_to_check = [
+        'X-Forwarded-For',
+        'X-Real-Ip',
+        'CF-Connecting-IP',
+        'True-Client-Ip',
+    ]
+
+    for header in headers_to_check:
+        if header in request.headers:
+            client_ip = request.headers[header]
+            client_ip = client_ip.split(',')[0].strip()
+            client_ip = shorten_ipv6(client_ip)
+            return client_ip
+
+    client_ip = request.remote_addr
+    client_ip = shorten_ipv6(client_ip)
+    return client_ip
+
+
+IP_API_PATH = os.path.join(CACHE_DIR, "ipapi.json")
+IP_INFO_KEYS = ['continent', 'continentCode', 'country', 'countryCode', 'region', 'regionName', 'city', 'district', 'zip', 'lat', 'lon', 'timezone', 'offset', 'currency', 'isp', 'org', 'as', 'asname', 'reverse', 'mobile', 'proxy', 'hosting', 'time']
+
+
+def get_ip_info(ip_address: str) -> dict:
+    """
+    Function to query IP information with cache con ip-api.com
+
+    :param ip_address: The client IP
+    """
+
+    ip_api_cache = JSON.load(IP_API_PATH)
+
+    for hashed_ip, crypted_data in ip_api_cache.items():
+        comparison = FastHashing().compare(ip_address, hashed_ip)
+        if comparison:
+            data = SymmetricCrypto(ip_address).decrypt(crypted_data)
+
+            data_json = {}
+            for i in range(23):
+                data_json[IP_INFO_KEYS[i]] = {"True": True, "False": False}.get(data.split("-&%-")[i], data.split("-&%-")[i])
+
+            if int(time()) - int(data_json["time"]) > 518400:
+                del ip_api_cache[hashed_ip]
+                break
+
+            return data_json
+        
+    response = requests.get(f"http://ip-api.com/json/{ip_address}?fields=66846719")
+    response.raise_for_status()
+    if response.ok:
+        response_json = response.json()
+        if response_json["status"] == "success":
+            del response_json["status"], response_json["query"]
+            response_json["time"] = int(time())
+            response_string = '-&%-'.join([str(value) for value in response_json.values()])
+            
+            crypted_response = SymmetricCrypto(ip_address).encrypt(response_string)
+            hashed_ip = FastHashing().hash(ip_address)
+
+            ip_api_cache[hashed_ip] = crypted_response
+            JSON.dump(ip_api_cache, IP_API_PATH)
+
+            return response_json
+        
+    raise requests.RequestException("ip-api.com could not be requested or did not provide a correct answer")
+
+def before_request_get_info():
+    g.ip_address = get_client_ip()
+    #try:
+    g.info = get_ip_info(g.ip_address)
+    #except:
+        #g.info = {"continent":"North America","continentCode":"NA","country":"United States","countryCode":"US","region":"CA","regionName":"California","city":"Los Angeles","district":"Downtown","zip":"90001","lat":34.0522,"lon":-118.2437,"timezone":"America/Los_Angeles","offset":-28800,"currency":"USD","isp":"AT&T","org":"AT&T Services, Inc.","as":"AS7018 AT&T Services, Inc.","asname":"AT&T","reverse":"cpe-192-180-220-1.socal.res.rr.com","mobile":False,"proxy":False,"hosting":False}
+    
 
 DISTRO_TO_PACKAGE_MANAGER = {
     "ubuntu": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
@@ -1227,7 +1361,7 @@ class Spotofy:
         total_seeds = seed_artists + seed_genres + seed_tracks
 
         for seeds, recommendation_data in recommendations.items():
-            if seeds == ''.join(total_seeds):
+            if seeds == ''.join(total_seeds) + country:
                 del recommendation_data["time"]
                 return [self.track(track_id) for track_id in recommendation_data["tracks"][:limit]]
 
@@ -1272,7 +1406,7 @@ class Spotofy:
             thread.start()
 
         recommendations = Spotofy._load(RECOMMENDATIONS_CACHE_PATH)
-        recommendations[''.join(total_seeds)] = {
+        recommendations[''.join(total_seeds) + country] = {
             "time": int(time()),
             "tracks": [track["id"] for track in recommendation["tracks"]]
         }

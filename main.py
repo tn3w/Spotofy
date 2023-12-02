@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, g
 import os
 import spotipy
 import logging
@@ -8,7 +8,7 @@ import zipfile
 import shutil
 import requests
 from spotipy.oauth2 import SpotifyClientCredentials
-from utils import Session, Spotofy, Linux, get_music, get_youtube_id, render_template
+from utils import Session, Spotofy, Linux, get_music, get_youtube_id, render_template, before_request_get_info
 
 if not __name__ == "__main__":
     exit()
@@ -172,6 +172,7 @@ else:
     spotify_client_id, spotify_client_secret = credentials
 
 app = Flask("Spotofy")
+app.before_request(before_request_get_info)
 app.after_request(Session._after_request)
 
 log = logging.getLogger('werkzeug')
@@ -181,13 +182,23 @@ spotofy = Spotofy()
 
 @app.route("/")
 def index():
-    test_sections = [
-        {
-            "title": "Hi",
-            "tracks": [spotofy.track("54ipXppHLA8U4yqpOFTUhr"), spotofy.track("2nG54Y4a3sH9YpfxMolOyi"), spotofy.track("6xZ4Q2k2ompmDppyeESIY8"), spotofy.track("0HqZX76SFLDz2aW8aiqi7G"), spotofy.track("4PUkO0ZuMrvWmetMTbEhCN")]
-        }
+    tracks = spotofy.recommendations(seed_genres=["pop", "electropop", "synthpop", "indie pop"], country=g.info["countryCode"])
+    formatted_tracks = []
+    for track in tracks:
+        artists_str = ""
+        i = 0
+        for artist in track["artists"]:
+            artists_str += artist["name"]
+            if not len(track["artists"]) - 1 <= i:
+                artists_str += ", "
+            i+=1
+        track["artists"] = artists_str
+        formatted_tracks.append(track)
+    sections = [
+        {"title": "You might like this", "tracks": tracks[:8]},
+        {"title": "Do you know this already", "tracks": tracks[8:16]},
     ]
-    return render_template(os.path.join(TEMPLATE_DIR, "index.html"), sections=test_sections)
+    return render_template(os.path.join(TEMPLATE_DIR, "index.html"), sections=sections)
 
 @app.route("/api/track")
 def api_track():
