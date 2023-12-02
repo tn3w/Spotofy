@@ -3,8 +3,12 @@
 </picture>
 <p align="center"><a rel="noreferrer noopener" href="http://tn3wtor4vgnrimugptubpaqsf2gc4pcsktknkxt74w7p5yzbt7rwrkid.onion/projects/Spotofy"><img alt="Backup 1" src="https://img.shields.io/badge/Backup%201-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>  <a rel="noreferrer noopener" href="http://tn3wvjimrn3hydx4u52kzfnkgu6kffef2js27ewlhdf5htulno34vqad.onion/projects/Spotofy"><img alt="Backup 2" src="https://img.shields.io/badge/Backup%202-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>  <a rel="noreferrer noopener" href="http://tn3wtor7cfz3epmuetrhkj3mangjxqpd47lxxicfwwdwja6dwq6dbdad.onion/projects/Spotofy"><img alt="Backup 3" src="https://img.shields.io/badge/Backup%203-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>
 
-# Spotofy
-Spotofy is a free music player client without ads to listen to and download your favorite music.
+<h2 align="center">Spotofy</h2>
+<br/>
+<p align="center">Spotofy is a <strong>free</strong> music player client <strong>without ads</strong> to listen to and download your favorite music.</p>
+<br/>
+<br/>
+
 
 ## 🚀 Installation
 A. Use git
