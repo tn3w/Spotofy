@@ -402,6 +402,7 @@
                 let musicPlayer = new Audio();
                 var playbarActionsStart = document.getElementById("playbar-start");
                 const progressBar = document.getElementById('playbar-status-bar');
+                const volumeSlider = document.getElementById('volume-slider');
                 const timeText = document.getElementById('time-text');
                 const durationText = document.getElementById('duration-text');
 
@@ -476,6 +477,13 @@
                         playbarActionsStart.src=playImage;
                     }
                 }
+                
+                volumeSlider.addEventListener('input', function () {
+                    var sliderValue = parseInt(volumeSlider.value, 10);
+                    sliderValue = Math.min(100, Math.max(0, sliderValue));
+
+                    musicPlayer.volume = sliderValue / 100;
+                });
 
                 var playbar = document.getElementById("playbar");
                 var playbarTrackImage = document.getElementById("playbar-track-image");
@@ -610,7 +618,7 @@
                 </div>
                 <div id="playbar-volume-slider">
                     <span>🔈</span>
-                    <input type="range" min="0" max="100" value="50" id="volume">
+                    <input id="volume-slider" type="range" min="0" max="100" value="100" id="volume">
                 </div>
             </div>
         </div>
