@@ -5,7 +5,7 @@
 
 <h2 align="center">Spotofy</h2>
 <br/>
-<p align="center">Spotofy is a <strong color="#00FF7E">free</strong> music player client <strong color="#00FF7E">without ads</strong> to listen to and download your favorite music.</p>
+<p align="center">Spotofy is a <strong style="color:#00FF7E;">free</strong> music player client <strong style="color:#00FF7E;">without ads</strong> to listen to and download your favorite music.</p>
 <br/>
 <br/>
 
