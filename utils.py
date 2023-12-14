@@ -56,7 +56,7 @@ def shorten_text(text: str, length: int = 22) -> str:
 
 def artists_to_string(artists: list) -> str:
     "Function to convert a list of artists into a string"
-    
+
     artists_str = ""
     i = 0
     for artist in artists:
@@ -65,7 +65,7 @@ def artists_to_string(artists: list) -> str:
             artists_str += ", "
         i+=1
     
-    return artists
+    return artists_str
 
 class SilentUndefined(Undefined):
     def _fail_with_undefined_error(self, *args, **kwargs):
