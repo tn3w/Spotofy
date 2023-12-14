@@ -187,7 +187,6 @@ def index():
     
     formatted_tracks = []
     for track in tracks:
-        track["artists"] = artists_to_string(track["artists"])
         track["name"] = shorten_text(track["name"])
         formatted_tracks.append(track)
 

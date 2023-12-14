@@ -54,19 +54,6 @@ def shorten_text(text: str, length: int = 22) -> str:
         text = text[:length - 3] + "..."
     return text
 
-def artists_to_string(artists: list) -> str:
-    "Function to convert a list of artists into a string"
-
-    artists_str = ""
-    i = 0
-    for artist in artists:
-        artists_str += f'<div class="artist" artist-id="{artist["id"]}">' + artist["name"] + "</div>"
-        if not len(artists) - 1 <= i:
-            artists_str += ", "
-        i+=1
-    
-    return artists_str
-
 class SilentUndefined(Undefined):
     def _fail_with_undefined_error(self, *args, **kwargs):
         return None

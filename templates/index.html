@@ -650,7 +650,9 @@
                         </div>
                         <div class="song-details">
                             <h3>{{ track["name"] }}</h3>
-                            <p>{{ track["artists"] }}</p>
+                            <p>
+                                {% for artist in track["artists"] %}<span id="artist" artist-id="{{ artist["id"] }}">{{ artist["name"] }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+                            </p>
                         </div>
                     </div>
                     {% endfor %}
