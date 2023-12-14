@@ -475,6 +475,7 @@
                 const volumeSlider = document.getElementById('volume-slider');
                 const timeText = document.getElementById('time-text');
                 const durationText = document.getElementById('duration-text');
+                let isLoading = false;
 
                 function formatTime(time) {
                     const minutes = Math.floor(time / 60);
@@ -510,6 +511,7 @@
 
                     playbarActionsStart.src=loadingImage;
                     playbarActionsStart.classList.add('loading');
+                    isLoading = true;
 
                     const apiUrl = "/api/music?spotify_track_id=" + trackId;
 
@@ -523,7 +525,7 @@
                         .then(blob => {
                             const audioUrl = URL.createObjectURL(blob);
                             audioUrlCache[trackId] = audioUrl;
-
+                            
                             musicPlayer.src = audioUrl;
 
                             musicPlayer.addEventListener('timeupdate', musicUpdateStatus);
@@ -532,6 +534,7 @@
                                 playbarActionsStart.src=playImage;
                             });
 
+                            isLoading = false;
                             playMusic();
                         })
                         .catch(error => {
@@ -543,6 +546,9 @@
                 }
 
                 function playMusic() {
+                    if (isLoading) {
+                        return;
+                    }
                     if (musicPlayer.paused) {
                         musicPlayer.play();
                         playbarActionsStart.src=pauseImage;
@@ -592,6 +598,9 @@
                 document.addEventListener("keydown", function(event) {
                     if (event.code === "Space") {
                         event.preventDefault();
+                        if (isLoading) {
+                            return;
+                        }
                         try {
                             playMusic();
                         } catch (error) {
