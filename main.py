@@ -8,8 +8,7 @@ import zipfile
 import shutil
 import requests
 from spotipy.oauth2 import SpotifyClientCredentials
-from utils import Session, Spotofy, Linux, get_music, get_youtube_id, render_template, before_request_get_info, shorten_text,\
-                  artists_to_string
+from utils import Session, Spotofy, Linux, get_music, get_youtube_id, render_template, before_request_get_info, shorten_text
 
 if not __name__ == "__main__":
     exit()
