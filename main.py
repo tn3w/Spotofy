@@ -8,7 +8,8 @@ import zipfile
 import shutil
 import requests
 from spotipy.oauth2 import SpotifyClientCredentials
-from utils import Session, Spotofy, Linux, get_music, get_youtube_id, render_template, before_request_get_info, shorten_text
+from utils import Session, Spotofy, Linux, get_music, get_youtube_id, render_template, before_request_get_info, shorten_text,\
+                  artists_to_string
 
 if not __name__ == "__main__":
     exit()
@@ -180,21 +181,16 @@ log.setLevel(logging.WARNING)
 
 spotofy = Spotofy()
 
-@app.route("/")
+@app.route("/") # FIXME: Add Post for search
 def index():
     tracks = spotofy.recommendations(seed_genres=["pop", "electropop", "synthpop", "indie pop"], country=g.info["countryCode"])
+    
     formatted_tracks = []
     for track in tracks:
-        artists_str = ""
-        i = 0
-        for artist in track["artists"]:
-            artists_str += artist["name"]
-            if not len(track["artists"]) - 1 <= i:
-                artists_str += ", "
-            i+=1
-        track["artists"] = artists_str
-        track["name"] = shorten_text(track["name"], 22)
+        track["artists"] = artists_to_string(track["artists"])
+        track["name"] = shorten_text(track["name"])
         formatted_tracks.append(track)
+
     sections = [
         {"title": "You might like this", "tracks": tracks[:8]},
         {"title": "Do you know this already", "tracks": tracks[8:16]},
