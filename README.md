@@ -73,7 +73,8 @@ B. (Recommended for TOR users) Install via ZIP
     ```
 
 
-## Targets
+## 📖 Targets
 - Approximately the same functionality as Spotify
+- Supplement music library with YouTube
 - Free of charge / Open Source
 - Use as few Api keys as possible
