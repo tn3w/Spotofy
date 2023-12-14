@@ -401,7 +401,7 @@
                     elements.style.filter = "none";
                 };
 
-                /* Search */
+                /* Search elements */
                 const mainContainer = document.getElementById("main");
                 const searchContainer = document.getElementById("search");
                 const searchForm = document.getElementById('search-form');
@@ -496,8 +496,6 @@
                 }
 
                 function startPlayer(trackId) {
-                    timeText.textContent = "0:00";
-                    durationText.textContent = "0:00";
 
                     if (audioUrlCache[trackId]) {
                         musicPlayer.src = audioUrlCache[trackId];
@@ -514,6 +512,9 @@
                     isLoading = true;
 
                     const apiUrl = "/api/music?spotify_track_id=" + trackId;
+
+                    timeText.textContent = "0:00";
+                    durationText.textContent = "0:00";
 
                     fetch(apiUrl)
                         .then(response => {
@@ -573,6 +574,10 @@
 
                 for (var i = 0; i < play_icons.length; i++) {
                     play_icons[i].onclick = function() {
+                        if (isLoading) {
+                            return;
+                        }
+
                         var trackID = this.getAttribute('track-id');
 
                         var songBox = this.closest('.song-box');
