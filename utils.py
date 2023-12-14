@@ -51,7 +51,7 @@ def shorten_text(text: str, length: int) -> str:
     "Shortens text to the given length and adds '...'"
 
     if len(text) > length:
-        text = text[length - 3] + "..."
+        text = text[:length - 3] + "..."
     return text
 
 class SilentUndefined(Undefined):
