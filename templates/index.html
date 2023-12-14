@@ -569,11 +569,11 @@
 
                         var trackImage = songBox.querySelector('.image-container .img').getAttribute('src');
                         var trackName = songBox.querySelector('.song-details h3').textContent;
-                        var trackArtist = songBox.querySelector('.song-details p').textContent;
+                        var trackArtist = songBox.querySelector('.song-details p').innerHTML;
 
                         playbarTrackImage.src = trackImage;
                         playbarTrackName.textContent = trackName;
-                        playbarTrackArtist.textContent = trackArtist;
+                        playbarTrackArtist.innerHTML = trackArtist;
 
                         playbar.style.display = "flex";
             
@@ -594,6 +594,10 @@
                             console.log(error);
                         };
                     };
+                });
+
+                musicPlayer.addEventListener("ended", function() {
+                    playbarActionsStart.src=pauseImage;
                 });
             });
         </script>

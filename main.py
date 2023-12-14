@@ -298,6 +298,10 @@ def api_music():
 
     return send_file(music_path)
 
+@app.errorhandler(404)
+def not_found(_):
+    return render_template(os.path.join(TEMPLATE_DIR, "404.html"))
+
 os.system('cls' if os.name == 'nt' else 'clear')
 print(LOGO)
 print("Running on http://localhost:8080")
