@@ -528,6 +528,10 @@
 
                             musicPlayer.addEventListener('timeupdate', musicUpdateStatus);
 
+                            musicPlayer.addEventListener("ended", function() {
+                                playbarActionsStart.src=playImage;
+                            });
+
                             playMusic();
                         })
                         .catch(error => {
@@ -594,10 +598,6 @@
                             console.log(error);
                         };
                     };
-                });
-
-                musicPlayer.addEventListener("ended", function() {
-                    playbarActionsStart.src=pauseImage;
                 });
             });
         </script>
