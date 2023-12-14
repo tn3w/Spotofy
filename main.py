@@ -8,7 +8,7 @@ import zipfile
 import shutil
 import requests
 from spotipy.oauth2 import SpotifyClientCredentials
-from utils import Session, Spotofy, Linux, get_music, get_youtube_id, render_template, before_request_get_info
+from utils import Session, Spotofy, Linux, get_music, get_youtube_id, render_template, before_request_get_info, shorten_text
 
 if not __name__ == "__main__":
     exit()
@@ -193,6 +193,7 @@ def index():
                 artists_str += ", "
             i+=1
         track["artists"] = artists_str
+        track["name"] = shorten_text(track["name"], 22)
         formatted_tracks.append(track)
     sections = [
         {"title": "You might like this", "tracks": tracks[:8]},

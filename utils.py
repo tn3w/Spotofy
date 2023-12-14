@@ -47,6 +47,13 @@ def generate_random_string(length: int, with_punctuation: bool = True, with_lett
     random_string = ''.join(secrets.choice(characters) for _ in range(length))
     return random_string
 
+def shorten_text(text: str, length: int) -> str:
+    "Shortens text to the given length and adds '...'"
+
+    if len(text) > length:
+        text = text[length - 3] + "..."
+    return text
+
 class SilentUndefined(Undefined):
     def _fail_with_undefined_error(self, *args, **kwargs):
         return None
