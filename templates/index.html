@@ -184,11 +184,15 @@
             }
 
             #playbar {
+                display: none;
+            }
+
+            #playbar-orientation {
+                display: flex;
                 position: fixed;
                 bottom: 0;
                 left: 0;
                 width: 100%;
-                display: none;
                 justify-content: space-between;
                 align-items: center;
                 padding: 20px;
@@ -300,6 +304,7 @@
                 display: flex;
                 align-items: center;
                 margin-top: 10px;
+                margin-right: 30px;
             }
 
             #playbar-volume-slider span {
@@ -325,6 +330,9 @@
                 #playbar-status-bar {
                     width: 80%;
                 }
+                #action-bar-container {
+                    margin-right: 30px;
+                }
             }
 
             @media screen and (max-width: 445px) {
@@ -333,6 +341,9 @@
                 }
                 #track-info {
                     justify-content: center;
+                }
+                #playbar-orientation {
+                    display: block;
                 }
             }
         </style>
@@ -446,10 +457,25 @@
 
                                     const songDetails = document.createElement('div');
                                     songDetails.classList.add('song-details');
-                                    songDetails.innerHTML = `
-                                        <h3>${track.name}</h3>
-                                        <p>${track.artists}</p>
-                                    `;
+                                    songDetails.innerHTML = `<h3>${track.name}</h3>`;
+
+
+                                    track.artists.forEach((artist, index) => {
+                                        const artistContainer = document.createElement('p');
+                                        const span = document.createElement('span');
+                                        span.setAttribute('id', 'artist');
+                                        span.setAttribute('artist-id', artist.id);
+                                        span.textContent = artist.name;
+
+                                        artistContainer.appendChild(span);
+
+                                        if (index < track.artists.length - 1) {
+                                            const comma = document.createTextNode(', ');
+                                            artistContainer.appendChild(comma);
+                                        }
+
+                                        songDetails.appendChild(artistContainer);
+                                    });
 
                                     songBox.appendChild(imageContainer);
                                     songBox.appendChild(songDetails);
@@ -686,32 +712,34 @@
             </footer>
 
             <div id="playbar">
-                <div id="track-info">
-                    <img id="playbar-track-image" src="">
-                    <div id="track-details">
-                        <a id="playbar-track-name" href=""></a>
-                        <a id="playbar-track-artist" class="artists" href=""></a>
-                    </div>
-                </div>
-                <div id="action-bar-container">
-                    <div id="action-bar">
-                        <img id="playbar-shuffle" class="icon smaller-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA42Ou8EPWEAAAKeSURBVFjD7VfLSiNBFD2VSCQBH8EkoiIoKIqCKChuRElciG4UFyL4CX6ALkSMunItCH6DoKI7SRQhIIiLgPgMiqJtNioKWfhInVnUdNrMTJM2cSIDczbdVPW959S9t6puA/+RB5A2GxkIUHq93yRgepokSU0jGxo+ztnyI8FuV8+KCmB7+1cRfz8C0uEgV1eZQjxONjUBgKD0+SC6ukBd5Uc8PUHEYkJcXFgmo9sNNDYCPh/ocKQmhMMBLCwAlZVq4O4O8PtBnpwwIy4vKaemKIuKzImHhshwmHx/z+xPx+EhKI+PrRvc3lLW1aWH1+ulDIWs+/iIaLQA6OkBTFIg3G6wsxNidBRwuVT4/H4gFlPk1dUQu7tATY0ySCaBrS0wFILQNPDtzTwFmgaMjFgsIp+PnJkhFxcpi4tVyJ1O8uAgtRi5v082N5sX4fp6WiRz3QnkxIThcGeHdDrNv52b+1pyWVhIPjwoh4+PmU44cnb2y8iVw4EBY0XBYObv7Xayt5fS48mZXDmcnzcEtLbm4ivLo7iqyng/P/8GAfpWen4WIpH4BgH19QAAalou5FkJINvagNpaAICIRKzZfGE/QG5uGgXY32/Nxrwf+CT55KRx8u3tkUJYswsGDdFZiCDdbnJpyXCSSKhU6PPj45TLy5QdHX+0/+0oNkRk6AfKyyHa24HBQaC0VI29voJjY8K2sqKLA+7vgZ/RYDgMEYmAZ2fAy0vKVW79gI6bG8ru7vToCEFubGR3HVvuB46OVP5dLvM0DQ+rSymZtC4gGs2QgngcuLoStutry/UiS0qAlhYIjwcsKDBPgaYBgcCnijFbqCJcWzNWbjSl+RGQtg3Tr+Q8/RfoqVBhF+L0NG+rVxGw2yn7+siysrwS/xP4AbpPYOenYV7SAAAAAElFTkSuQmCC">
-                        <img id="playbar-last" class="icon smaller-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA4zHEB+TNkAAAISSURBVFjDxZgvSGthGIefd7hiEyyCM1h0IFPwD5YJarJoUgRBYYgu2jRq02iSTdEhYrGKYLBYFl0YJlEwKeJUGIKTfT/DuVwZF69znm1vPOc7PM95vnD4DpKZtLsrFQpSLifFYlRh5EIhaWdHur+XLi/lolHvhnp6VDIvL77DNTcnPT+Xcm5v5YJB5IaG9M+Y+QNuaZE7OdGXEw4HqpHbg09MQCaDjY19vai5ucF/cFMTSiRgcvL71Wa+CkjDw5BKYW1t5T7jyxZIjY1SIgFnZ1A+HODXBeT6+mB/H8LhSp6vuIBcMCitr2PpdKXwigtInZ3eW/f3VwquqIAUCEjLy3Bx4Qf8RwXkQiG0t4eNjvoB/lEBaWEBy2b9hn9bQDJDySTMz/sNLrNAPI5VD16GwMxMNeFlCPjzVfyFwOFhnQW2tiCVqpuAmXMQi8HSEry+1qEAmElmm5uouxvS6ZoL/BUJXF1BNApra/D+XnMBr0axaLa6CgMDkM3WXOBTJJNBvb2wsQHFYs0FACxQKJitrKCREbi5qbnAp8j5OYpEIJkEqeYCnkQ+b7a4iMbH4e6u5gKfIsfH0NWFjo7qIgBg9vhogakpmJ6GXO7/q6XqHs1ca6t0evr10ayjA7lIpPTi05OfRbzTdzwul8+Xcq6v5Roa/phub0tvb3IPD3Kzs35viyfS3i4dHHi/ALJZaXAQ4ANyYXZ1zXsfZwAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyMy0xMS0yOFQxNDo1MToyOCswMDowMJKneqIAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjMtMTEtMjhUMTQ6NTE6MjgrMDA6MDDj+sIeAAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDIzLTExLTI4VDE0OjUxOjI4KzAwOjAwtO/jwQAAAABJRU5ErkJggg==">
-                        <img id="playbar-start" class="icon" src="">
-                        <img id="playbar-next" class="icon smaller-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA4xNqnz540AAAITSURBVFjDxZc9S2tBFEXXXBIQC0EQwUILKwMSBBVsIoiVlZWVGCVqCFZ2qe3iL5AYEQsR1MZCLAI2gqQRTHGxEgWx8AOigggqzn5FEh7hkbzE3HB3O2dmr7MPDDMAyEYi0tWV9PgobW3J9vbSAkmxmFQoSF9f0va2ZAyywaB0d6cKvb5K8/PeA7y9VfoMDSGFQqome3Ii9fR4Y27Mv+ePjzuoq6vqLjM1Bfm8ND3dipEAOGBM7ZLubjg6kj04kDo7WwBQp8zMTDGNiQl/AADo64PTUymdltrbfQCA4sjicbi4kB0Z8QGgrFAIk8tJqZRsMOgDAEAgAMkk5vxcGhjwAaCs0VG4vJSSSclp6EyPAADa2iCVQtlsI1e5hwAlmclJjOtK8bg/AAB0dEA6LZvJSLUvuhYBlNNYWoJEwj8AAGZnfQbwcwQA7O35CLCzAxsbPgB8fMDqKsRixlhbqzLgvXkuh6JR41xf11PtYQLf37C2BpFIveYeJuC6MDdnTD7f6M4mE/j5gfV1NDz8G/MmE7i9RQsLxjk7a6aFXyQgweYmCoebNf9FAg8PaHnZOMfHzRo3noAOD2Fw0EvzUgJS7ZJCAVZWjLO/76XxXwDz9FR9OZtFi4vGub9vhTkAsoGAdHNT+Wd7f5cSif89Jhr20stLpU84XFoYG5Nct/h13t2V+vtb02w0Kvv8LH1+ymYyAH8A/k5KY9VbTu8AAAAASUVORK5CYII=">
-                        <img id="playbar-loop" class="icon smaller-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA46FehgTzQAAAIRSURBVFjD7ZW/SitBFMa/k1zZQolFsLURQ5TttPAB7AS7BBQURKyiaGdhwNaXCETs1iewsRJ8ACOCBrTVQoWNmkWYz2LwbpLF7M5mLoGLp9mZYfZ8v/NnZoBf+9+Mqlqlct3hAZAkfZ+qVBoiAEkqRR4dkdlsv/0S73B0FJieBiYnQceJJRDP6144OwNWV0Wenw0jKRbJep18e+OgpppNMp9PLq62tqwIJwCQqPj6OuT4OFxpNADPA+/vgSBIV4KVFZGXlwSRFwpku62xPz/JSoWU2D7pLp1ZE/b8XK+HDioVE+FugBTHkMpxyCDQDq6uTCMP/aS8iKjm58PoDw/TiPfPzNISeXpKzs312fBdvrU1+wB3d9r5xUXneiYctlrheHzcNgBwfa2/CwtUExNRAN7cAEoBAGRx0bo+z8/1IJsFisUIgGSenoDLSz2bmbGfgdfXv0MZG4tmAACwuwt4HrC3Z11fpqbCyeOj8f9UrktVrabRJkXIRkM34ccH1ciIoXipRPo+SaYCUNvb4Qmr1QzJ9/f1tarNPPKdHX2tk2S7TVUodO758zN1LgecnADLy73ZiJd2HF3zchmYnf3GATY3JXN7m4A8n9dPqK3nuNUiNzYMUmcLwPeparXetHfajw8OVS4HiZYALJdjI5AgAB8eIM2myPt74sijmRisCa3ZoMfQEoTrkgcHQwP4tX9lXx31pqKtbFk+AAAAAElFTkSuQmCC">
-                    </div>
-                    <div id="playbar-statusbar-container">
-                        <p id="time-text">0:00</p>
-                        <div id="status-bar">
-                            <div id="playbar-status-bar"></div>
+                <div id="playbar-orientation">
+                    <div id="track-info">
+                        <img id="playbar-track-image" src="">
+                        <div id="track-details">
+                            <a id="playbar-track-name" href=""></a>
+                            <a id="playbar-track-artist" class="artists" href=""></a>
                         </div>
-                        <p id="duration-text">0:00</p>
                     </div>
-                </div>
-                <div id="playbar-volume-slider">
-                    <span>🔈</span>
-                    <input id="volume-slider" type="range" min="0" max="100" value="100" id="volume">
+                    <div id="action-bar-container">
+                        <div id="action-bar">
+                            <img id="playbar-shuffle" class="icon smaller-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA42Ou8EPWEAAAKeSURBVFjD7VfLSiNBFD2VSCQBH8EkoiIoKIqCKChuRElciG4UFyL4CX6ALkSMunItCH6DoKI7SRQhIIiLgPgMiqJtNioKWfhInVnUdNrMTJM2cSIDczbdVPW959S9t6puA/+RB5A2GxkIUHq93yRgepokSU0jGxo+ztnyI8FuV8+KCmB7+1cRfz8C0uEgV1eZQjxONjUBgKD0+SC6ukBd5Uc8PUHEYkJcXFgmo9sNNDYCPh/ocKQmhMMBLCwAlZVq4O4O8PtBnpwwIy4vKaemKIuKzImHhshwmHx/z+xPx+EhKI+PrRvc3lLW1aWH1+ulDIWs+/iIaLQA6OkBTFIg3G6wsxNidBRwuVT4/H4gFlPk1dUQu7tATY0ySCaBrS0wFILQNPDtzTwFmgaMjFgsIp+PnJkhFxcpi4tVyJ1O8uAgtRi5v082N5sX4fp6WiRz3QnkxIThcGeHdDrNv52b+1pyWVhIPjwoh4+PmU44cnb2y8iVw4EBY0XBYObv7Xayt5fS48mZXDmcnzcEtLbm4ivLo7iqyng/P/8GAfpWen4WIpH4BgH19QAAalou5FkJINvagNpaAICIRKzZfGE/QG5uGgXY32/Nxrwf+CT55KRx8u3tkUJYswsGDdFZiCDdbnJpyXCSSKhU6PPj45TLy5QdHX+0/+0oNkRk6AfKyyHa24HBQaC0VI29voJjY8K2sqKLA+7vgZ/RYDgMEYmAZ2fAy0vKVW79gI6bG8ru7vToCEFubGR3HVvuB46OVP5dLvM0DQ+rSymZtC4gGs2QgngcuLoStutry/UiS0qAlhYIjwcsKDBPgaYBgcCnijFbqCJcWzNWbjSl+RGQtg3Tr+Q8/RfoqVBhF+L0NG+rVxGw2yn7+siysrwS/xP4AbpPYOenYV7SAAAAAElFTkSuQmCC">
+                            <img id="playbar-last" class="icon smaller-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA4zHEB+TNkAAAISSURBVFjDxZgvSGthGIefd7hiEyyCM1h0IFPwD5YJarJoUgRBYYgu2jRq02iSTdEhYrGKYLBYFl0YJlEwKeJUGIKTfT/DuVwZF69znm1vPOc7PM95vnD4DpKZtLsrFQpSLifFYlRh5EIhaWdHur+XLi/lolHvhnp6VDIvL77DNTcnPT+Xcm5v5YJB5IaG9M+Y+QNuaZE7OdGXEw4HqpHbg09MQCaDjY19vai5ucF/cFMTSiRgcvL71Wa+CkjDw5BKYW1t5T7jyxZIjY1SIgFnZ1A+HODXBeT6+mB/H8LhSp6vuIBcMCitr2PpdKXwigtInZ3eW/f3VwquqIAUCEjLy3Bx4Qf8RwXkQiG0t4eNjvoB/lEBaWEBy2b9hn9bQDJDySTMz/sNLrNAPI5VD16GwMxMNeFlCPjzVfyFwOFhnQW2tiCVqpuAmXMQi8HSEry+1qEAmElmm5uouxvS6ZoL/BUJXF1BNApra/D+XnMBr0axaLa6CgMDkM3WXOBTJJNBvb2wsQHFYs0FACxQKJitrKCREbi5qbnAp8j5OYpEIJkEqeYCnkQ+b7a4iMbH4e6u5gKfIsfH0NWFjo7qIgBg9vhogakpmJ6GXO7/q6XqHs1ca6t0evr10ayjA7lIpPTi05OfRbzTdzwul8+Xcq6v5Roa/phub0tvb3IPD3Kzs35viyfS3i4dHHi/ALJZaXAQ4ANyYXZ1zXsfZwAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyMy0xMS0yOFQxNDo1MToyOCswMDowMJKneqIAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjMtMTEtMjhUMTQ6NTE6MjgrMDA6MDDj+sIeAAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDIzLTExLTI4VDE0OjUxOjI4KzAwOjAwtO/jwQAAAABJRU5ErkJggg==">
+                            <img id="playbar-start" class="icon" src="">
+                            <img id="playbar-next" class="icon smaller-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA4xNqnz540AAAITSURBVFjDxZc9S2tBFEXXXBIQC0EQwUILKwMSBBVsIoiVlZWVGCVqCFZ2qe3iL5AYEQsR1MZCLAI2gqQRTHGxEgWx8AOigggqzn5FEh7hkbzE3HB3O2dmr7MPDDMAyEYi0tWV9PgobW3J9vbSAkmxmFQoSF9f0va2ZAyywaB0d6cKvb5K8/PeA7y9VfoMDSGFQqome3Ii9fR4Y27Mv+ePjzuoq6vqLjM1Bfm8ND3dipEAOGBM7ZLubjg6kj04kDo7WwBQp8zMTDGNiQl/AADo64PTUymdltrbfQCA4sjicbi4kB0Z8QGgrFAIk8tJqZRsMOgDAEAgAMkk5vxcGhjwAaCs0VG4vJSSSclp6EyPAADa2iCVQtlsI1e5hwAlmclJjOtK8bg/AAB0dEA6LZvJSLUvuhYBlNNYWoJEwj8AAGZnfQbwcwQA7O35CLCzAxsbPgB8fMDqKsRixlhbqzLgvXkuh6JR41xf11PtYQLf37C2BpFIveYeJuC6MDdnTD7f6M4mE/j5gfV1NDz8G/MmE7i9RQsLxjk7a6aFXyQgweYmCoebNf9FAg8PaHnZOMfHzRo3noAOD2Fw0EvzUgJS7ZJCAVZWjLO/76XxXwDz9FR9OZtFi4vGub9vhTkAsoGAdHNT+Wd7f5cSif89Jhr20stLpU84XFoYG5Nct/h13t2V+vtb02w0Kvv8LH1+ymYyAH8A/k5KY9VbTu8AAAAASUVORK5CYII=">
+                            <img id="playbar-loop" class="icon smaller-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA46FehgTzQAAAIRSURBVFjD7ZW/SitBFMa/k1zZQolFsLURQ5TttPAB7AS7BBQURKyiaGdhwNaXCETs1iewsRJ8ACOCBrTVQoWNmkWYz2LwbpLF7M5mLoGLp9mZYfZ8v/NnZoBf+9+Mqlqlct3hAZAkfZ+qVBoiAEkqRR4dkdlsv/0S73B0FJieBiYnQceJJRDP6144OwNWV0Wenw0jKRbJep18e+OgpppNMp9PLq62tqwIJwCQqPj6OuT4OFxpNADPA+/vgSBIV4KVFZGXlwSRFwpku62xPz/JSoWU2D7pLp1ZE/b8XK+HDioVE+FugBTHkMpxyCDQDq6uTCMP/aS8iKjm58PoDw/TiPfPzNISeXpKzs312fBdvrU1+wB3d9r5xUXneiYctlrheHzcNgBwfa2/CwtUExNRAN7cAEoBAGRx0bo+z8/1IJsFisUIgGSenoDLSz2bmbGfgdfXv0MZG4tmAACwuwt4HrC3Z11fpqbCyeOj8f9UrktVrabRJkXIRkM34ccH1ciIoXipRPo+SaYCUNvb4Qmr1QzJ9/f1tarNPPKdHX2tk2S7TVUodO758zN1LgecnADLy73ZiJd2HF3zchmYnf3GATY3JXN7m4A8n9dPqK3nuNUiNzYMUmcLwPeparXetHfajw8OVS4HiZYALJdjI5AgAB8eIM2myPt74sijmRisCa3ZoMfQEoTrkgcHQwP4tX9lXx31pqKtbFk+AAAAAElFTkSuQmCC">
+                        </div>
+                        <div id="playbar-statusbar-container">
+                            <p id="time-text">0:00</p>
+                            <div id="status-bar">
+                                <div id="playbar-status-bar"></div>
+                            </div>
+                            <p id="duration-text">0:00</p>
+                        </div>
+                    </div>
+                    <div id="playbar-volume-slider">
+                        <span>🔈</span>
+                        <input id="volume-slider" type="range" min="0" max="100" value="100" id="volume">
+                    </div>
                 </div>
             </div>
         </div>

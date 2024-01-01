@@ -358,7 +358,9 @@ class Session(dict):
         except:
             return None
     
-    def __setitem__(self, key, value) -> str:
+    def __setitem__(self, key, value) -> None:
+        if request.cookies.get("use_cookies", "1") == "0":
+            return
         if self.session_id is None:
             if os.path.isfile(SESSIONS_PATH):
                 sessions = JSON.load(SESSIONS_PATH)
@@ -476,7 +478,7 @@ def get_client_ip() -> str:
     return client_ip
 
 
-IP_API_PATH = os.path.join(CACHE_DIR, "ipapi.json")
+IP_API_CACHE_PATH = os.path.join(CACHE_DIR, "ipapi-cache.json")
 IP_INFO_KEYS = ['continent', 'continentCode', 'country', 'countryCode', 'region', 'regionName', 'city', 'district', 'zip', 'lat', 'lon', 'timezone', 'offset', 'currency', 'isp', 'org', 'as', 'asname', 'reverse', 'mobile', 'proxy', 'hosting', 'time']
 
 
@@ -487,7 +489,7 @@ def get_ip_info(ip_address: str) -> dict:
     :param ip_address: The client IP
     """
 
-    ip_api_cache = JSON.load(IP_API_PATH)
+    ip_api_cache = JSON.load(IP_API_CACHE_PATH)
 
     for hashed_ip, crypted_data in ip_api_cache.items():
         comparison = FastHashing().compare(ip_address, hashed_ip)
@@ -517,7 +519,7 @@ def get_ip_info(ip_address: str) -> dict:
             hashed_ip = FastHashing().hash(ip_address)
 
             ip_api_cache[hashed_ip] = crypted_response
-            JSON.dump(ip_api_cache, IP_API_PATH)
+            JSON.dump(ip_api_cache, IP_API_CACHE_PATH)
 
             return response_json
         
@@ -614,6 +616,7 @@ USER_AGENTS = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KH
 def get_image_color(image_url: str):
     """
     Function to get the main color of an image based on its image url
+
     :param image_url: The url of the image
     """
 
@@ -650,6 +653,7 @@ YOUTUBE_IDS_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-ids-cache.json")
 def get_youtube_id(search: str, spotify_id: Optional[str] = None) -> str:
     """
     Function to get a YouTube video ID based on a search term
+
     :param search: Search term after searching for video ids on YouTube
     """
 
@@ -699,6 +703,7 @@ SPOTIFY_CANVAS_CACHE_PATH = os.path.join(CACHE_DIR, "spotify-canvas-cache.json")
 def get_canvas_url(spotify_track_id: str) -> str:
     """
     Gets the canvas of a Spotify track
+
     :param spotify_track_id: The ID of the Spotify track
     """
 
@@ -780,6 +785,7 @@ FFMPEG_CONF_PATH = os.path.join(DATA_DIR, "FFmpeg.conf")
 def get_music(youtube_video_id: str, duration_ms: int) -> str:
     """
     Function to get the music file path of a YouTube video
+
     :param youtube_video_id: The YouTube Video ID
     :param duration_ms: The length of the music in milliseconds
     """
@@ -851,6 +857,7 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
 def remove_elements(source: dict, elements_to_remove: list):
     """
     Deletes listed items from a dict
+
     :param source: The dict from which things are to be deleted
     :param elements_to_remove: Things to be deleted from the list
     """
@@ -867,6 +874,7 @@ SEARCHS_CACHE_PATH = os.path.join(CACHE_DIR, "searchs-cache.json")
 RECOMMENDATIONS_CACHE_PATH = os.path.join(CACHE_DIR, "recommendations-cache.json")
 
 class Spotofy:
+    "All classes that use the Spotify Api to get data"
 
     def __init__(self):
         with open(CREDENTIALS_PATH, "r") as file:
@@ -895,6 +903,7 @@ class Spotofy:
     def _complete_track_data(spotify_track_id: str) -> None:
         """
         Function to add more data to a track
+
         :param spotify_track_id: The Spotify track ID
         """
         
@@ -927,6 +936,7 @@ class Spotofy:
     def _add_theme(spotify_id: str, cache_path: str) -> None:
         """
         Function to add the theme color to artists / playlists
+
         :param spotofy_id: The Spotify ID from the playlist or artist
         :param cache_path: The path to the cache file
         """
@@ -942,10 +952,12 @@ class Spotofy:
         JSON.dump(dictionary, cache_path)
 
     @staticmethod
-    def _load(cache_path: str) -> dict:
+    def _load(cache_path: str, cache_time: int = 2592000) -> dict:
         """
         Function to load all tracks / artists / playlists
+
         :param cache_path: The path to the cache file
+        :param cache_time: How long data should be stored
         """
 
         if os.path.isfile(cache_path):
@@ -953,7 +965,7 @@ class Spotofy:
             
             copy_dictionary = dictionary.copy()
             for item_id, item_data in dictionary.items():
-                if item_data["time"] + 2592000 < int(time()):
+                if item_data["time"] + cache_time < int(time()):
                     del copy_dictionary[item_id]
 
             
@@ -966,9 +978,9 @@ class Spotofy:
     def track(self, spotify_track_id: str) -> dict:
         """
         Gets information about a specific Spotify track
-        :param spotify_track_id: The Spotify track ID
-        
         > Data points: artists(id, name), duration_ms, explicit, id, name, image, Optional: youtube_id, theme
+
+        :param spotify_track_id: The Spotify track ID
         """
 
         tracks = Spotofy._load(TRACKS_CACHE_PATH)
@@ -1013,6 +1025,7 @@ class Spotofy:
     def artist(self, spotify_artist_id: str) -> dict:
         """
         Gets information about a specific artist
+
         :param spotify_artist_id: The Spotify artist ID
         """
 
@@ -1060,6 +1073,7 @@ class Spotofy:
     def artist_top_tracks(self, spotify_artist_id: str, country: str = "US") -> dict:
         """
         Get all top tracks of an artist
+
         :param spotify_artist_id: The Spotify artist ID
         :param country: The country code of the client in ISO-3166-1 format
         """
@@ -1135,6 +1149,7 @@ class Spotofy:
     def playlist(self, spotify_playlist_id: str, limit: int = 100) -> dict:
         """
         Gets information about a specific playlist
+
         :param spotify_playlist_id: The Spotify playlist ID
         :param limit: How many tracks to return
         """
@@ -1225,6 +1240,7 @@ class Spotofy:
     def search(self, q: str, limit: int = 20, types: list = ["track", "playlist", "artist"]) -> dict:
         """
         Function to search for tracks / playlists / artists
+
         :param q: What to search for
         :param limit: How many tracks to return
         :param types: What types of objects to return
@@ -1356,6 +1372,7 @@ class Spotofy:
     def recommendations(self, seed_artists: list = [], seed_genres: list = [], seed_tracks: list = [], limit: int = 30, country: str = "US") -> dict:
         """
         Function to get track recommendations based on tracks, artists and genres
+
         :param seed_artists: Artists on which recommendations should be generated
         :param seed_genres: Genres on which recommendations should be generated
         :param seed_tracks: Tracks on which recommendations should be generated
@@ -1363,7 +1380,7 @@ class Spotofy:
         :param country: The country code of the client in ISO-3166-1 format
         """
 
-        recommendations = Spotofy._load(RECOMMENDATIONS_CACHE_PATH)
+        recommendations = Spotofy._load(RECOMMENDATIONS_CACHE_PATH, 86400)
 
         total_seeds = seed_artists + seed_genres + seed_tracks
 
