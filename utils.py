@@ -292,7 +292,7 @@ SESSIONS_PATH = os.path.join(DATA_DIR, "sessions.json")
 
 class Session(dict):
 
-    def __init__(self, session_id: Optional[str] = None, session_token: Optional[str] = None) -> str:
+    def __init__(self, session_id: Optional[str] = None, session_token: Optional[str] = None):
         super().__init__()
 
         self.session_id = None
@@ -314,7 +314,7 @@ class Session(dict):
                 self.session_token = client_session_token
     
     @staticmethod
-    def _after_request(response: Response):
+    def _after_request(response: Response) -> Response:
         try:
             g.session_cookie
         except:
@@ -324,16 +324,16 @@ class Session(dict):
         return response
 
     @staticmethod
-    def _get_session(session_id: str, session_token: Optional[str] = None):
+    def _get_session(session_id: str, session_token: Optional[str] = None) -> Tuple[Optional[str], Optional[list]]:
         if os.path.isfile(SESSIONS_PATH):
             sessions = JSON.load(SESSIONS_PATH)
         else:
             sessions = {}
         for hashed_session_id, session_data in sessions.items():
-            session_id_comparison = Hashing().compare(session_id, hashed_session_id)
+            session_id_comparison = FastHashing().compare(session_id, hashed_session_id)
             if session_id_comparison:
                 if not session_token is None:
-                    session_token_comparison = Hashing().compare(session_token, session_data["hash"])
+                    session_token_comparison = FastHashing().compare(session_token, session_data["hash"])
                     if session_token_comparison:
                         return hashed_session_id, session_data
                 else:
@@ -341,7 +341,7 @@ class Session(dict):
             break
         return None, None
 
-    def __getitem__(self, key) -> Optional[str]:
+    def __getitem__(self, key) -> any:
         if self.session_id is None:
             return None
         
@@ -368,11 +368,11 @@ class Session(dict):
                 sessions = {}
             
             session_id = generate_random_string(10, with_punctuation = False)
-            while any([Hashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions.items()]):
+            while any([FastHashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions.items()]):
                 session_id = generate_random_string(10)
-            hashed_session_id = Hashing().hash(session_id)
+            hashed_session_id = FastHashing().hash(session_id)
             session_token = generate_random_string(40)
-            hashed_session_token = Hashing().hash(session_token)
+            hashed_session_token = FastHashing().hash(session_token)
 
             sessions[hashed_session_id] = {
                 "hash": hashed_session_token,
@@ -531,7 +531,7 @@ def before_request_get_info():
         g.info = get_ip_info(g.ip_address)
     except:
         g.info = {"continent":"North America","continentCode":"NA","country":"United States","countryCode":"US","region":"CA","regionName":"California","city":"Los Angeles","district":"Downtown","zip":"90001","lat":34.0522,"lon":-118.2437,"timezone":"America/Los_Angeles","offset":-28800,"currency":"USD","isp":"AT&T","org":"AT&T Services, Inc.","as":"AS7018 AT&T Services, Inc.","asname":"AT&T","reverse":"cpe-192-180-220-1.socal.res.rr.com","mobile":False,"proxy":False,"hosting":False}
-    
+    g.session = Session()
 
 DISTRO_TO_PACKAGE_MANAGER = {
     "ubuntu": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
