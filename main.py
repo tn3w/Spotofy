@@ -279,6 +279,16 @@ def api_music():
             return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
     else:
         track = tracks.get(spotify_track_id)
+
+    session: Session = g.session
+
+    played_tracks = session["played_tracks"]
+    if played_tracks is None:
+        played_tracks = []
+    
+    played_tracks.append(spotify_track_id)
+    played_tracks = list(set(played_tracks))
+    session["played_tracks"] = played_tracks
     
     if track.get("youtube_id") is None:
         track_search = track["name"] + " "
