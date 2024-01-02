@@ -59,8 +59,7 @@
                 justify-content: space-around;
             }
 
-            #cookie-banner .btn-container .btn-accept,
-            #cookie-banner .btn-container .btn-reject {
+            #cookie-banner-accept, #cookie-banner-decline {
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
@@ -69,11 +68,12 @@
                 color: #fff;
             }
 
-            #cookie-banner .btn-container .btn-accept {
+            #cookie-banner-accept {
                 background-color: #00FF7E;
+                color: #121212;
             }
 
-            #cookie-banner .btn-container .btn-reject {
+            #cookie-banner-decline {
                 background-color: #555;
             }
 
@@ -553,10 +553,10 @@
 
             document.addEventListener('DOMContentLoaded', function() {
                 /* Cookie elements */
-                var elements = document.getElementById("elements");
+                var mainElements = document.getElementById("main-elements");
                 var cookieBanner = document.getElementById("cookie-banner");
                 if (getCookie("use_cookies") === null) {
-                    elements.style.filter = "blur(3px)";
+                    mainElements.style.filter = "blur(3px)";
                     show(cookieBanner);
                 }
                 var useCookies = getCookie("use_cookies", "1") === "1";
@@ -566,7 +566,7 @@
                 cookieAcceptButton.onclick = function() {
                     setCookie("use_cookies", "1");
                     hide(cookieBanner);
-                    elements.style.filter = "none";
+                    mainElements.style.filter = "none";
                 };
                 
                 cookieDeclineButton.onclick = function() {
@@ -574,7 +574,7 @@
                     setCookie("use_cookies", "0");
                     useCookies = false;
                     hide(cookieBanner);
-                    elements.style.filter = "none";
+                    mainElements.style.filter = "none";
                 };
 
                 /* Search elements */
