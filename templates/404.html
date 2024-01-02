@@ -1,97 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 Not Found</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Arial', sans-serif;
-            background-color: #121212;
-            color: #ecf0f1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .container {
-            text-align: center;
-            z-index: 9;
-        }
-
-        h1 {
-            font-size: 8em;
-            margin: 0;
-        }
-
-        p {
-            font-size: 1.5em;
-            margin-top: 0.5em;
-        }
-
-        button {
-            font-size: 1.2em;
-            background-color: #555;
-            color: #ecf0f1;
-            border: none;
-            padding: 10px 20px;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-
-        button:hover {
-            background-color: #00FF7E;
-            color: #121212;
-        }
-
-        .bubble {
-            position: absolute;
-            border-radius: 50%;
-            background-color: #00FF7E;
-            pointer-events: none;
-            animation: moveBubble linear infinite;
-        }
-
-        @keyframes moveBubble {
-            0% {
-                transform: translateY(0) translateX(0);
-            }
-            100% {
-                transform: translateY(-100vh) translateX(calc(100vw - 100%));
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>404</h1>
-        <p>Lost in the cosmic abyss, our apologies, you've ventured into the unknown reaches of our site. </p>
-        <button onclick="window.location.href = '/';">Back Home</button>
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const maxBubbles = 20;
-            const bubbleContainer = document.body;
-
-            for (let i = 0; i < maxBubbles; i++) {
-                createBubble();
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>404 Not Found</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Arial', sans-serif;
+                background-color: #121212;
+                color: #ecf0f1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                overflow: hidden;
             }
 
-            function createBubble() {
-                const bubble = document.createElement('div');
-                bubble.classList.add('bubble');
-                bubble.style.width = `${Math.random() * 50 + 10}px`;
-                bubble.style.height = bubble.style.width;
-                bubble.style.left = `${Math.random() * window.innerWidth}px`;
-                bubble.style.animationDuration = `${Math.random() * 4 + 4}s`;
-                bubbleContainer.appendChild(bubble);
+            .container {
+                text-align: center;
+                z-index: 9;
             }
-        });
-    </script>
-</body>
+
+            h1 {
+                font-size: 8em;
+                margin: 0;
+            }
+
+            p {
+                font-size: 1.5em;
+                margin-top: 0.5em;
+            }
+
+            button {
+                font-size: 1.2em;
+                background-color: #555;
+                color: #ecf0f1;
+                border: none;
+                padding: 10px 20px;
+                cursor: pointer;
+                margin-top: 20px;
+            }
+
+            button:hover {
+                background-color: #00FF7E;
+                color: #121212;
+            }
+
+            .bubble {
+                position: absolute;
+                border-radius: 50%;
+                background-color: #00FF7E;
+                pointer-events: none;
+                animation: moveBubble linear infinite;
+            }
+
+            @keyframes moveBubble {
+                0% {
+                    transform: translateY(0) translateX(0);
+                }
+                100% {
+                    transform: translateY(-100vh) translateX(calc(100vw - 100%));
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>404</h1>
+            <p>Lost in the cosmic abyss, our apologies, you've ventured into the unknown reaches of our site. </p>
+            <button onclick="window.location.href = '/';">Back Home</button>
+        </div>
+        <div id="bubble-container"></div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const maxBubbles = 30;
+                const bubbleContainer = document.getElementById("bubble-container");
+
+                function createBubble() {
+                    if (bubbleContainer.childElementCount < maxBubbles) {
+                        const bubble = document.createElement('div');
+                        bubble.classList.add('bubble');
+                        bubble.style.width = `${Math.random() * 50 + 10}px`;
+                        bubble.style.height = bubble.style.width;
+                        bubble.style.left = `${Math.random() * (window.innerWidth - parseInt(bubble.style.width))}px`;
+                        bubble.style.animationDuration = `${Math.random() * 4 + 4}s`;
+
+                        const documentHeight = Math.max(document.body.scrollHeight, document.body.offsetHeight, document.documentElement.clientHeight, document.documentElement.scrollHeight, document.documentElement.offsetHeight);
+                        bubble.style.top = `${Math.random() * (documentHeight - parseInt(bubble.style.height))}px`;
+
+                        bubbleContainer.appendChild(bubble);
+
+                        bubble.addEventListener('animationend', function () {
+                            bubbleContainer.removeChild(bubble);
+                        });
+                    }
+                }
+
+                function generateBubbles() {
+                    for (let i = 0; i < maxBubbles; i++) {
+                        setInterval(function () {
+                            createBubble();
+                        }, Math.random() * 2000);
+                    }
+                }
+
+                generateBubbles();
+
+                setInterval(function () {
+                    generateBubbles();
+                }, 2000);
+
+            });
+        </script>
+    </body>
 </html>
