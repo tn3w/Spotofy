@@ -1385,7 +1385,7 @@ class Spotofy:
         total_seeds = seed_artists + seed_genres + seed_tracks
 
         for seeds, recommendation_data in recommendations.items():
-            if seeds == ''.join(total_seeds) + country:
+            if seeds == ''.join(total_seeds).replace(" ", "") + country.lower():
                 del recommendation_data["time"]
                 return [self.track(track_id) for track_id in recommendation_data["tracks"][:limit]]
 
@@ -1401,7 +1401,8 @@ class Spotofy:
 
         try:
             recommendation = self.spotify.recommendations(seed_artists, seed_genres, seed_tracks, 40, country)
-        except:
+        except Exception as e:
+            print(e)
             self._reconnect()
             recommendation = self.spotify.recommendations(seed_artists, seed_genres, seed_tracks, 40, country)
         
@@ -1430,7 +1431,7 @@ class Spotofy:
             thread.start()
 
         recommendations = Spotofy._load(RECOMMENDATIONS_CACHE_PATH)
-        recommendations[''.join(total_seeds) + country] = {
+        recommendations[''.join(total_seeds).replace(" ", "") + country.lower()] = {
             "time": int(time()),
             "tracks": [track["id"] for track in recommendation["tracks"]]
         }
