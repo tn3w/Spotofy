@@ -735,10 +735,6 @@
 
                             musicPlayer.addEventListener('timeupdate', musicUpdateStatus);
 
-                            musicPlayer.addEventListener("ended", function() {
-                                playbarActionsStart.src=playImage;
-                            });
-
                             isLoading = false;
                             playMusic();
                         })
@@ -775,10 +771,10 @@
                 var playbarTrackImage = document.getElementById("playbar-track-image");
                 var playbarTrackName = document.getElementById("playbar-track-name");
                 var playbarTrackArtist = document.getElementById("playbar-track-artist");
-                var play_icons = document.getElementsByClassName('play-icon');
+                var playIcons = document.getElementsByClassName('play-icon');
 
-                for (var i = 0; i < play_icons.length; i++) {
-                    play_icons[i].onclick = function() {
+                for (var i = 0; i < playIcons.length; i++) {
+                    playIcons[i].onclick = function() {
                         if (isLoading) {
                             return;
                         }
@@ -817,6 +813,29 @@
                             console.log(error);
                         };
                     };
+                });
+
+                /* Loop Elements */
+                var playbarActionsLoop = document.getElementById("playbar-loop");
+                let isLooping = false;
+
+                playbarActionsLoop.addEventListener('click', function () {
+                    if (isLooping) {
+                        isLooping = false;
+                        playbarActionsLoop.src = loopImage;
+                    } else {
+                        isLooping = true;
+                        playbarActionsLoop.src = loopActivatedImage;
+                    }
+                });
+
+                musicPlayer.addEventListener('ended', function () {
+                    if (isLooping) {
+                        musicPlayer.currentTime = 0;
+                        musicPlayer.play();
+                    } else {
+                        playbarActionsStart.src=playImage;
+                    }
                 });
             });
         </script>
