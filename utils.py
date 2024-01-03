@@ -43,7 +43,7 @@ def generate_random_string(length: int, with_punctuation: bool = True, with_lett
 
     if with_letters:
         characters += "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    
+
     random_string = ''.join(secrets.choice(characters) for _ in range(length))
     return random_string
 
@@ -70,14 +70,14 @@ def render_template(file_name: str, **args) -> str:
         autoescape=select_autoescape(['html', 'xml']),
         undefined=SilentUndefined
     )
-    
-    with open(file_name, "r") as file:
+
+    with open(file_name, "r", encoding = "utf-8") as file:
         html = file.read()
 
     template = env.from_string(html)
-    
+
     html = template.render(**args)
-  
+
     html = re.sub(r'<!--(.*?)-->', '', html, flags=re.DOTALL)
     html = re.sub(r'\s+', ' ', html)
 
@@ -103,7 +103,7 @@ class JSON:
     "Class for loading / saving JavaScript Object Notation (= JSON)"
 
     @staticmethod
-    def load(file_name: str, default: Union[dict, list] = dict()) -> Union[dict, list]:
+    def load(file_name: str, default: Union[dict, list] = None) -> Union[dict, list]:
         """
         Function to load a JSON file securely.
 
@@ -113,17 +113,17 @@ class JSON:
 
         if not os.path.isfile(file_name):
             if isinstance(default, list):
-                return list()
-            return dict()
-        
+                return []
+            return {}
+
         if file_name not in file_locks:
             file_locks[file_name] = Lock()
 
         with file_locks[file_name]:
-            with open(file_name, "r") as file:
+            with open(file_name, "r", encoding = "utf-8") as file:
                 data = json.load(file)
             return data
-    
+
     @staticmethod
     def dump(data: Union[dict, list], file_name: str) -> None:
         """
@@ -136,14 +136,14 @@ class JSON:
         file_directory = os.path.dirname(file_name)
         if not os.path.isdir(file_directory):
             raise FileNotFoundError("Directory '" + file_directory + "' does not exist.")
-        
+
         if file_name not in file_locks:
             file_locks[file_name] = Lock()
 
         with file_locks[file_name]:
-            with open(file_name, "w") as file:
+            with open(file_name, "w", encoding = "utf-8") as file:
                 json.dump(data, file)
-                
+       
 class SymmetricCrypto:
     """
     Implementation of symmetric encryption with AES
@@ -276,7 +276,7 @@ class Hashing:
 
         if salt is None:
             raise ValueError("Salt cannot be None if there is no salt in hash")
-        
+
         salt = bytes.fromhex(salt)
 
         hash_length = len(urlsafe_b64decode(hash.encode('utf-8')))
@@ -344,20 +344,20 @@ class Session(dict):
     def __getitem__(self, key) -> any:
         if self.session_id is None:
             return None
-        
+
         _, session_data = self._get_session(self.session_id, self.session_token)
-        
+
         if session_data["data"] == None:
             data = {}
         else:
             decrypted_data = SymmetricCrypto(self.session_token).decrypt(session_data["data"])
             data = json.loads(decrypted_data)
-        
+
         try:
             return data[key]
         except:
             return None
-    
+
     def __setitem__(self, key, value) -> None:
         if request.cookies.get("use_cookies", "1") == "0":
             return
@@ -366,7 +366,7 @@ class Session(dict):
                 sessions = JSON.load(SESSIONS_PATH)
             else:
                 sessions = {}
-            
+
             session_id = generate_random_string(10, with_punctuation = False)
             while any([FastHashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions.items()]):
                 session_id = generate_random_string(10)
@@ -413,7 +413,7 @@ class FastHashing:
         ":param salt: The salt, makes the hashing process more secure (Optional)"
 
         self.salt = salt
-    
+
     def hash(self, plain_text: str, hash_length: int = 8) -> str:
         """
         Function to hash a plaintext
@@ -426,12 +426,12 @@ class FastHashing:
         if salt is None:
             salt = secrets.token_hex(hash_length)
         plain_text = salt + plain_text
-        
+
         hash_object = hashlib.sha256(plain_text.encode())
         hex_dig = hash_object.hexdigest()
 
         return hex_dig + "//" + salt
-    
+
     def compare(self, plain_text: str, hash: str) -> bool:
         """
         Compares a plaintext with a hashed value
@@ -439,11 +439,11 @@ class FastHashing:
         :param plain_text: The text that was hashed
         :param hash: The hashed value
         """
-        
+
         salt = self.salt
         if "//" in hash:
             hash, salt = hash.split("//")
-        
+
         hash_length = len(hash)
 
         comparison_hash = FastHashing(salt=salt).hash(plain_text, hash_length = hash_length).split("//")[0]
@@ -458,7 +458,7 @@ def get_client_ip() -> str:
             return str(ipaddress.IPv6Address(ip_address).compressed)
         except:
             return ip_address
-    
+
     headers_to_check = [
         'X-Forwarded-For',
         'X-Real-Ip',
@@ -505,7 +505,7 @@ def get_ip_info(ip_address: str) -> dict:
                 break
 
             return data_json
-        
+
     response = requests.get(f"http://ip-api.com/json/{ip_address}?fields=66846719")
     response.raise_for_status()
     if response.ok:
@@ -514,7 +514,7 @@ def get_ip_info(ip_address: str) -> dict:
             del response_json["status"], response_json["query"]
             response_json["time"] = int(time())
             response_string = '-&%-'.join([str(value) for value in response_json.values()])
-            
+
             crypted_response = SymmetricCrypto(ip_address).encrypt(response_string)
             hashed_ip = FastHashing().hash(ip_address)
 
@@ -522,7 +522,7 @@ def get_ip_info(ip_address: str) -> dict:
             JSON.dump(ip_api_cache, IP_API_CACHE_PATH)
 
             return response_json
-        
+
     raise requests.RequestException("ip-api.com could not be requested or did not provide a correct answer")
 
 def before_request_get_info():
@@ -574,7 +574,7 @@ class Linux:
         package_manager = DISTRO_TO_PACKAGE_MANAGER.get(distro_id, {"installation_command": None, "update_command": None})
 
         installation_command, update_command = package_manager["installation_command"], package_manager["update_command"]
-        
+
         if None in [installation_command, update_command]:
             for package_manager in PACKAGE_MANAGERS:
                 try:
@@ -583,9 +583,9 @@ class Linux:
                     pass
                 else:
                     installation_command, update_command = package_manager["installation_command"], package_manager["update_command"]
-        
+
         return installation_command, update_command
-    
+
     @staticmethod
     def install_package(package_name: str) -> None:
         """
@@ -593,7 +593,7 @@ class Linux:
         
         :param package_name: Name of the Linux packet
         """
-        
+
         installation_command, update_command = Linux.get_package_manager()
 
         if not None in [installation_command, update_command]:
@@ -602,10 +602,10 @@ class Linux:
                 update_process.wait()
             except Exception as e:
                 print(f"[Error]Error using update Command while installing linux package '{package_name}': '{e}'")
-            
+
             install_process = subprocess.Popen(f"sudo {installation_command} {package_name} -y", shell=True)
             install_process.wait()
-        
+
         else:
             raise Exception("No package manager found!")
 
@@ -638,12 +638,12 @@ def get_image_color(image_url: str):
     sorted_colors = sorted(color_counts.items(), key=lambda x: -x[1])
 
     for color, _ in sorted_colors:
-        r, g, b = color
+        red, green, blue = color
 
-        brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        brightness = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
 
         if 0.1 < brightness < 0.9:
-            hex_color = "#{:02X}{:02X}{:02X}".format(r, g, b)
+            hex_color = "#{:02X}{:02X}{:02X}".format(red, green, blue)
             return hex_color
 
     return None
@@ -659,12 +659,12 @@ def get_youtube_id(search: str, spotify_id: Optional[str] = None) -> str:
 
     if os.path.isfile(YOUTUBE_IDS_CACHE_PATH):
         youtube_ids = JSON.load(YOUTUBE_IDS_CACHE_PATH)
-        
+
         copy_youtube_ids = youtube_ids.copy()
         for youtube_search, search_data in youtube_ids.items():
             if search_data["time"] + 2592000 < int(time()):
                 del copy_youtube_ids[youtube_search]
-        
+
         if len(copy_youtube_ids) != len(youtube_ids):
             JSON.dump(copy_youtube_ids, YOUTUBE_IDS_CACHE_PATH)
             youtube_ids = copy_youtube_ids
@@ -678,7 +678,7 @@ def get_youtube_id(search: str, spotify_id: Optional[str] = None) -> str:
         else:
             if youtube_search == search:
                 return search_data["youtube_id"]
-    
+
     response = requests.get("https://www.youtube.com/results?search_query=" + search.replace(" ", "+"), headers = {'User-Agent': random.choice(USER_AGENTS)})
 
     video_id = re.findall(r"watch\?v=(\S{11})", response.content.decode())[0]
@@ -714,7 +714,7 @@ def get_canvas_url(spotify_track_id: str) -> str:
             return data.get("accessToken")
         except:
             return
-        
+ 
     if os.path.isfile(SPOTIFY_CANVAS_CACHE_PATH):
         spotify_canvas = JSON.load(SPOTIFY_CANVAS_CACHE_PATH)
 
@@ -722,13 +722,13 @@ def get_canvas_url(spotify_track_id: str) -> str:
         for track_id, canvas_data in spotify_canvas.items():
             if canvas_data["time"] + 2592000 < int(time()):
                 del copy_spotify_canvas[track_id]
-        
+
         if len(copy_spotify_canvas) != len(spotify_canvas):
             JSON.dump(copy_spotify_canvas, SPOTIFY_CANVAS_CACHE_PATH)
             spotify_canvas = copy_spotify_canvas
     else:
         spotify_canvas = {}
-    
+
     for track_id, canvas_data in spotify_canvas.items():
         if track_id == spotify_track_id:
             if len(canvas_data["urls"]) == 0:
@@ -736,7 +736,7 @@ def get_canvas_url(spotify_track_id: str) -> str:
 
             if len(canvas_data["urls"]) == 1:
                 return canvas_data["urls"][0]
-            
+
             return random.choice(canvas_data["urls"])
 
     access_token = get_access_token()
@@ -755,17 +755,18 @@ def get_canvas_url(spotify_track_id: str) -> str:
                 "Authorization": "Bearer %s" % access_token, 
                 "User-Agent": random.choice(USER_AGENTS)
             }, 
-            data = canvas_request.SerializeToString()
+            data = canvas_request.SerializeToString(),
+            timeout = 3
         )
     except:
         return
-    
+
     canvas_response = EntityCanvazResponse()
     try:
         canvas_response.ParseFromString(response.content)
     except:
         return
-    
+
     canvas_urls = [canvas.url for canvas in canvas_response.canvases]
 
     spotify_canvas[spotify_track_id] = {"time": int(time()), "urls": canvas_urls}
@@ -776,7 +777,7 @@ def get_canvas_url(spotify_track_id: str) -> str:
 
     if len(canvas_urls) == 1:
         return canvas_urls[0]
-    
+
     return random.choice(canvas_urls)
 
 MUSIC_CACHE_DIR = os.path.join(CACHE_DIR, "music")
@@ -791,7 +792,7 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
     """
 
     if os.path.isfile(FFMPEG_CONF_PATH):
-        with open(FFMPEG_CONF_PATH, "r") as file:
+        with open(FFMPEG_CONF_PATH, "r", encoding = "utf-8") as file:
             ffmpeg_path = file.read()
     else:
         ffmpeg_path = None
@@ -803,11 +804,11 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
         else:
             if file_youtube_id == youtube_video_id:
                 return os.path.join(MUSIC_CACHE_DIR, file)
-    
+
     current_time = time()
 
     yt_dlp.utils.std_headers["User-Agent"] = random.choice(USER_AGENTS)
-    
+
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": os.path.join(MUSIC_CACHE_DIR, f"{youtube_video_id}++{str(int(current_time))}" + ".%(ext)s"),
@@ -827,10 +828,10 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
         ydl.download(["https://www.youtube.com/watch?v=" + youtube_video_id])
 
     output_file = os.path.join(MUSIC_CACHE_DIR, f"{youtube_video_id}++{str(int(current_time))}.mp3")
-    
+
     if ffmpeg_path is None:
         ffmpeg_path = "ffmpeg"
-    
+
     cut_command = [
         ffmpeg_path,
         "-i", output_file,
@@ -846,12 +847,12 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
     else:
         os.remove(output_file)
         os.rename(output_file.replace(".mp3", "output.mp3"), output_file)
-    
+
     for file in os.listdir(MUSIC_CACHE_DIR):
         file_youtube_id, file_time = file.split(".")[0].split("++")
         if file_youtube_id == youtube_video_id:
             return os.path.join(MUSIC_CACHE_DIR, file)
-    
+
     raise Exception("Something went wrong with the YouTube download...")
 
 def remove_elements(source: dict, elements_to_remove: list):
@@ -877,7 +878,7 @@ class Spotofy:
     "All classes that use the Spotify Api to get data"
 
     def __init__(self):
-        with open(CREDENTIALS_PATH, "r") as file:
+        with open(CREDENTIALS_PATH, "r", encoding = "utf-8") as file:
             credentials = file.read().split("---")
         self.spotify_client_id, self.spotify_client_secret = credentials
         self._reconnect()
@@ -890,15 +891,15 @@ class Spotofy:
         client_credentials_manager = SpotifyClientCredentials(client_id=self.spotify_client_id, client_secret=self.spotify_client_secret)
         spotify = Spotify(client_credentials_manager=client_credentials_manager)
         self.spotify = spotify
-    
+
     @property
     def country_codes(self) -> list:
         """
         Returns all country codes
         """
-        
+
         return self.spotify.country_codes
-    
+
     @staticmethod
     def _complete_track_data(spotify_track_id: str) -> None:
         """
@@ -906,7 +907,7 @@ class Spotofy:
 
         :param spotify_track_id: The Spotify track ID
         """
-        
+
         tracks = Spotofy._load(TRACKS_CACHE_PATH)
 
         track = tracks[spotify_track_id]
@@ -931,7 +932,7 @@ class Spotofy:
 
         tracks[spotify_track_id] = track
         JSON.dump(tracks, TRACKS_CACHE_PATH)
-    
+
     @staticmethod
     def _add_theme(spotify_id: str, cache_path: str) -> None:
         """
@@ -940,7 +941,7 @@ class Spotofy:
         :param spotofy_id: The Spotify ID from the playlist or artist
         :param cache_path: The path to the cache file
         """
-        
+
         dictionary = Spotofy._load(cache_path)
 
         item = dictionary[spotify_id]
@@ -962,19 +963,18 @@ class Spotofy:
 
         if os.path.isfile(cache_path):
             dictionary = JSON.load(cache_path)
-            
+
             copy_dictionary = dictionary.copy()
             for item_id, item_data in dictionary.items():
                 if item_data["time"] + cache_time < int(time()):
                     del copy_dictionary[item_id]
 
-            
             if len(copy_dictionary) != len(dictionary):
                 JSON.dump(copy_dictionary, cache_path)
-            
+
             return copy_dictionary
         return {}
-    
+
     def track(self, spotify_track_id: str) -> dict:
         """
         Gets information about a specific Spotify track
@@ -994,18 +994,18 @@ class Spotofy:
                     thread.start()
 
                 return track_data
-        
+
         try:
             track = self.spotify.track(track_id = spotify_track_id)
         except (client.SpotifyException, ConnectionError):
             self._reconnect()
             track = self.spotify.track(track_id = spotify_track_id)
-        
+
         try:
             track["image"] = max(track["album"]["images"], key=lambda x: x['height'])["url"]
         except:
             track["image"] = track["album"]["images"][0]["url"]
-        
+
         track = remove_elements(track, ["album", "available_markets", "disc_number", "external_ids", "external_urls", "href", "is_local", "popularity", "preview_url", "track_number", "type", "uri"])
         track["artists"] = [remove_elements(artist, ["external_urls", "href", "type", "uri"]) for artist in track["artists"]]
         track["time"] = int(time())
@@ -1021,7 +1021,7 @@ class Spotofy:
         del track["time"]
 
         return track
-    
+
     def artist(self, spotify_artist_id: str) -> dict:
         """
         Gets information about a specific artist
@@ -1038,18 +1038,18 @@ class Spotofy:
                     if not artist_data.get("top_tracks") is None:
                         del artist_data["top_tracks"]
                     return artist_data
-        
+
         try:
             artist = self.spotify.artist(artist_id = spotify_artist_id)
         except (client.SpotifyException, ConnectionError):
             self._reconnect()
             artist = self.spotify.artist(artist_id = spotify_artist_id)
-        
+
         try:
             artist["image"] = max(artist["images"], key=lambda x: x['height'])["url"]
         except:
             artist["image"] = artist["images"][0]["url"]
-        
+
         artist = remove_elements(artist, ["external_urls", "popularity", "type", "uri", "href", "images"])
         artist["followers"] = artist["followers"]["total"]
         artist["time"] = int(time())
@@ -1069,7 +1069,7 @@ class Spotofy:
         del artist["time"]
 
         return artist
-    
+
     def artist_top_tracks(self, spotify_artist_id: str, country: str = "US") -> dict:
         """
         Get all top tracks of an artist
@@ -1085,13 +1085,13 @@ class Spotofy:
                 for top_tracks_country, top_tracks in artist_data.get("top_tracks", dict()).items():
                     if top_tracks_country == country:
                         return [self.track(track_id) for track_id in top_tracks]
-        
+
         try:
             artist_top_tracks = self.spotify.artist_top_tracks(artist_id = spotify_artist_id, country = country)
         except (client.SpotifyException, ConnectionError):
             self._reconnect()
             artist_top_tracks = self.spotify.artist_top_tracks(artist_id = spotify_artist_id, country = country)
-        
+
         if os.path.isfile(TRACKS_CACHE_PATH):
             tracks = JSON.load(TRACKS_CACHE_PATH)
 
@@ -1099,7 +1099,7 @@ class Spotofy:
             for track_id, track_data in tracks.items():
                 if track_data["time"] + 2592000 < int(time()):
                     del copy_tracks[track_id]
-            
+
             if len(copy_tracks) != len(tracks):
                 JSON.dump(copy_tracks, TRACKS_CACHE_PATH)
                 tracks = copy_tracks
@@ -1135,7 +1135,7 @@ class Spotofy:
         artists = Spotofy._load(ARTISTS_CACHE_PATH)
 
         artist = artists.get(spotify_artist_id, None)
-        if artist == None:
+        if artist is None:
             artists[spotify_artist_id] = {
                 "time": time(),
                 "top_tracks": {}
@@ -1145,7 +1145,7 @@ class Spotofy:
         JSON.dump(artists, ARTISTS_CACHE_PATH)
 
         return top_tracks
-    
+
     def playlist(self, spotify_playlist_id: str, limit: int = 100) -> dict:
         """
         Gets information about a specific playlist
@@ -1162,7 +1162,6 @@ class Spotofy:
                 if limit == 0:
                     del playlist_data["tracks"]
                 else:
-                    # Add the tracks to be added
                     playlist_data["tracks"] = [self.track(track_id) for track_id in playlist_data["tracks"][:limit]]
                 return playlist_data
 
@@ -1178,7 +1177,7 @@ class Spotofy:
             try:
                 playlist_tracks_data = self.spotify.playlist_tracks(playlist_id = spotify_playlist_id, limit = limit)
             except (client.SpotifyException, ConnectionError):
-                self._reconnect
+                self._reconnect()
                 playlist_tracks_data = self.spotify.playlist_tracks(playlist_id = spotify_playlist_id, limit = limit)
 
         try:
@@ -1236,8 +1235,8 @@ class Spotofy:
             del playlist["tracks"]
 
         return playlist
-    
-    def search(self, q: str, limit: int = 20, types: list = ["track", "playlist", "artist"]) -> dict:
+
+    def search(self, q: str, limit: int = 20, types: Optional[list] = None) -> dict:
         """
         Function to search for tracks / playlists / artists
 
@@ -1246,12 +1245,15 @@ class Spotofy:
         :param types: What types of objects to return
         """
 
+        if types is None:
+            types = ["track", "playlist", "artist"]
+
         searchs = Spotofy._load(SEARCHS_CACHE_PATH)
 
         for search_q, search_data in searchs.items():
             if search_q == q:
                 del search_data["time"]
-                
+
                 if "track" in types:
                     search_data["tracks"] = [self.track(track_id) for track_id in search_data["tracks"][:limit]]
                 else:
@@ -1261,20 +1263,20 @@ class Spotofy:
                     search_data["playlists"] = [self.playlist(playlist_id, limit=0) for playlist_id in search_data["playlists"][:limit]]
                 else:
                     del search_data["playlists"]
-                
+
                 if "artist" in types:
                     search_data["artists"] = [self.artist(artist_id) for artist_id in search_data["artists"][:limit]]
                 else:
                     del search_data["artists"]
-                
+
                 return search_data
-        
+
         try:
             search = self.spotify.search(q, limit, type = "track,playlist,artist")
         except:
             self._reconnect()
             search = self.spotify.search(q, limit, type = "track,playlist,artist")
-        
+
         tracks = Spotofy._load(TRACKS_CACHE_PATH)
 
         search_tracks = []
@@ -1298,9 +1300,9 @@ class Spotofy:
         for track in search["tracks"]["items"]:
             thread = Thread(target = self._complete_track_data, args = (track["id"], ))
             thread.start()
-        
+
         artists = Spotofy._load(ARTISTS_CACHE_PATH)
-        
+
         search_artists = []
         for artist in search["artists"]["items"]:
             try:
@@ -1310,7 +1312,7 @@ class Spotofy:
                     artist["image"] = artist["images"][0]["url"]
                 except:
                     artist["image"] = None
-            
+
             artist = remove_elements(artist, ["external_urls", "popularity", "type", "uri", "href", "images"])
             artist["followers"] = artist["followers"]["total"]
 
@@ -1319,7 +1321,7 @@ class Spotofy:
             artist["time"] = int(time())
 
             artists[artist["id"]] = artist
-        
+
         JSON.dump(artists, ARTISTS_CACHE_PATH)
 
         for artist in search["artists"]["items"]:
@@ -1343,7 +1345,7 @@ class Spotofy:
             playlist["time"] = int(time())
 
             playlists[playlist["id"]] = playlist
-        
+
         JSON.dump(playlists, PLAYLISTS_CACHE_PATH)
 
         for playlist in search["playlists"]["items"]:
@@ -1356,7 +1358,7 @@ class Spotofy:
             "artists": [artist["id"] for artist in search_artists],
             "playlists": [playlist["id"] for playlist in search_playlists]
         }
-        
+
         searchs = Spotofy._load(SEARCHS_CACHE_PATH)
         searchs[q] = search_ids
         JSON.dump(searchs, SEARCHS_CACHE_PATH)
@@ -1368,8 +1370,14 @@ class Spotofy:
         }
 
         return search
-    
-    def recommendations(self, seed_artists: list = [], seed_genres: list = [], seed_tracks: list = [], limit: int = 30, country: str = "US") -> dict:
+
+    def recommendations(
+            self,
+            seed_artists: Optional[list] = None,
+            seed_genres: Optional[list] = None,
+            seed_tracks: Optional[list] = None,
+            limit: int = 30, country: str = "US"
+        ) -> dict:
         """
         Function to get track recommendations based on tracks, artists and genres
 
@@ -1379,6 +1387,10 @@ class Spotofy:
         :param limit: How many tracks to return
         :param country: The country code of the client in ISO-3166-1 format
         """
+
+        seed_artists = seed_artists if seed_artists is not None else []
+        seed_genres = seed_genres if seed_genres is not None else []
+        seed_tracks = seed_tracks if seed_tracks is not None else []
 
         recommendations = Spotofy._load(RECOMMENDATIONS_CACHE_PATH, 86400)
 
@@ -1391,7 +1403,7 @@ class Spotofy:
 
         if len(total_seeds) > 5:
             generated_seeds = random.sample(seed_artists + seed_genres + seed_tracks, 4)
-            
+
             while len(set(generated_seeds)) < 5:
                 generated_seeds = random.sample(seed_artists + seed_genres + seed_tracks, 4)
 
@@ -1401,11 +1413,10 @@ class Spotofy:
 
         try:
             recommendation = self.spotify.recommendations(seed_artists, seed_genres, seed_tracks, 40, country)
-        except Exception as e:
-            print(e)
+        except:
             self._reconnect()
             recommendation = self.spotify.recommendations(seed_artists, seed_genres, seed_tracks, 40, country)
-        
+
         tracks = Spotofy._load(TRACKS_CACHE_PATH)
 
         recommendation_tracks = []
@@ -1423,7 +1434,7 @@ class Spotofy:
             track["time"] = int(time())
 
             tracks[track["id"]] = track
-        
+
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
         for track in recommendation["tracks"]:

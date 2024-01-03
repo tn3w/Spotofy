@@ -1,19 +1,25 @@
-from flask import Flask, request, send_file, g
+"""
+Free software "Spotofy" licensed under Apache 2.0.
+https://github.com/tn3w/Spotofy
+"""
+
 import os
-import spotipy
 import logging
 import subprocess
 import platform
 import zipfile
 import shutil
-import requests
+from flask import Flask, request, send_file, g
+import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-from utils import Session, Spotofy, Linux, get_music, get_youtube_id, render_template, before_request_get_info, shorten_text
+import requests
+from utils import Session, Spotofy, Linux, get_music, get_youtube_id,\
+                  render_template, before_request_get_info, shorten_text
 
-if not __name__ == "__main__":
+if __name__ != "__main__":
     exit()
 
-LOGO = """   _____             __        ____     
+LOGO = r"""   _____             __        ____
   / ___/____  ____  / /_____  / __/_  __
   \__ \/ __ \/ __ \/ __/ __ \/ /_/ / / /
  ___/ / /_/ / /_/ / /_/ /_/ / __/ /_/ / 
@@ -43,7 +49,7 @@ SYSTEM = platform.system()
 
 if not os.path.isfile(FFMPEG_CONF_PATH):
     try:
-        with open(os.devnull, 'w') as devnull:
+        with open(os.devnull, 'w', encoding = "utf-8") as devnull:
             subprocess.call(["ffmpeg", "--version"], stdout=devnull, stderr=devnull)
     except OSError:
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -63,7 +69,7 @@ if not os.path.isfile(FFMPEG_CONF_PATH):
                     input("Enter: ")
                 else:
                     try:
-                        with open(os.devnull, 'w') as devnull:
+                        with open(os.devnull, 'w', encoding = "utf-8") as devnull:
                             subprocess.call([FFMPEG_PATH, "--version"], stdout=devnull, stderr=devnull)
                     except OSError:
                         print("\n[Error] The given FFMPEG does not work properly.")
@@ -76,7 +82,7 @@ if not os.path.isfile(FFMPEG_CONF_PATH):
 
             print("Operating system is Windows\n\nDownloading FFmpeg from", WINDOWS_FFMPEG_URL, "...")
 
-            response = requests.get(WINDOWS_FFMPEG_URL, stream=True)
+            response = requests.get(WINDOWS_FFMPEG_URL, stream=True, timeout = 3)
             if response.status_code == 200:
                 with open(FFMPEG_ARCHIVE_PATH, "wb") as ffmpeg_zip:
                     total_length = int(response.headers.get('content-length'))
@@ -88,7 +94,7 @@ if not os.path.isfile(FFMPEG_CONF_PATH):
                             downloaded += len(data)
                             progress = (downloaded / total_length) * 100
                             print(f'Downloaded: {downloaded}/{total_length} Bytes ({progress:.2f}%)', end='\r')
-            
+
             os.system('cls' if os.name == 'nt' else 'clear')
             print(LOGO)
             print("-- FFmpeg is not installed --")
@@ -96,7 +102,7 @@ if not os.path.isfile(FFMPEG_CONF_PATH):
 
             with zipfile.ZipFile(FFMPEG_ARCHIVE_PATH, 'r') as zip_ref:
                 zip_ref.extractall(DATA_DIR)
-            
+
             FFMPEG_PATH = os.path.join(DATA_DIR, "ffmpeg-master-latest-win64-gpl", "bin", "ffmpeg.exe")
         elif SYSTEM == "Darwin":
             MACOS_FFMPEG_URL = "https://evermeet.cx/ffmpeg/ffmpeg-6.0.7z"
@@ -116,18 +122,18 @@ if not os.path.isfile(FFMPEG_CONF_PATH):
                             downloaded += len(data)
                             progress = (downloaded / total_length) * 100
                             print(f'Downloaded: {downloaded}/{total_length} Bytes ({progress:.2f}%)', end='\r')
-            
+
             os.system('cls' if os.name == 'nt' else 'clear')
             print(LOGO)
             print("-- FFmpeg is not installed --")
             print("Operating system is MacOS\n\nExtracting...")
-            
+
             shutil.unpack_archive(FFMPEG_ARCHIVE_PATH, DATA_DIR)
 
             FFMPEG_PATH = os.path.join(DATA_DIR, "ffmpeg")
         else:
             Linux.install_package("ffmpeg")
-        
+
         try:
             FFMPEG_PATH
             with open(FFMPEG_CONF_PATH, "w") as file:
@@ -155,6 +161,7 @@ if not os.path.isfile(CREDENTIALS_PATH):
                 break
             print("[Error] A Spotify Client Secret must normally have 32 characters.")
             input("\nEnter: ")
+
         try:
             sp_oauth = SpotifyClientCredentials(client_id = spotify_client_id, client_secret = spotify_client_secret)
             sp = spotipy.Spotify(client_credentials_manager=sp_oauth)
@@ -164,11 +171,13 @@ if not os.path.isfile(CREDENTIALS_PATH):
             input("\nEnter: ")
         else:
             break
-    with open(CREDENTIALS_PATH, "w") as file:
+
+    with open(CREDENTIALS_PATH, "w", encoding = "utf-8") as file:
         file.write(spotify_client_id + "---" + spotify_client_secret)
 else:
-    with open(CREDENTIALS_PATH, "r") as file:
+    with open(CREDENTIALS_PATH, "r", encoding = "utf-8") as file:
         credentials = file.read().split("---")
+
     spotify_client_id, spotify_client_secret = credentials
 
 app = Flask("Spotofy")
@@ -183,7 +192,7 @@ spotofy = Spotofy()
 @app.route("/") # FIXME: Add Post for search
 def index():
     tracks = spotofy.recommendations(seed_genres=["pop", "electropop", "synthpop", "indie pop"], country=g.info["countryCode"])
-    
+
     formatted_tracks = []
     for track in tracks:
         track["name"] = shorten_text(track["name"])
@@ -201,10 +210,10 @@ def api_track():
 
     if spotify_track_id is None:
         return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
-    
+
     if len(spotify_track_id) != 22:
         return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
-    
+
     tracks = spotofy._load(TRACKS_CACHE_PATH)
     if tracks.get(spotify_track_id) is None:
         try:
@@ -213,7 +222,7 @@ def api_track():
             return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
     else:
         track = tracks.get(spotify_track_id)
-    
+
     return track
 
 @app.route("/api/artist")
@@ -222,10 +231,10 @@ def api_artist():
 
     if spotify_artist_id is None:
         return {"status_code": 400, "error": "Bad Request - The spotify_artist_id parameter is not given."}, 400
-    
+
     if len(spotify_artist_id) != 22:
         return {"status_code": 400, "error": "Bad Request - The Spotify artist ID given in spotify_artist_id is incorrect."}, 400
-    
+
     artists = spotofy._load(ARTISTS_CACHE_PATH)
     if artists.get(spotify_artist_id) is None:
         try:
@@ -242,7 +251,7 @@ def api_playlist():
 
     if spotify_playlist_id is None:
         return {"status_code": 400, "error": "Bad Request - The spotify_artist_id parameter is not given."}, 400
-    
+
     if limit is None:
         limit = 100
     else:
@@ -251,7 +260,7 @@ def api_playlist():
                 return {"status_code": 400, "error": "Bad Request - The limit parameter must not be greater than 100."}, 400
         except:
             return {"status_code": 400, "error": "Bad Request - The limit parameter must be an integer."}, 400
-    
+
     playlists = spotofy._load(PLAYLISTS_CACHE_PATH)
     if playlists.get(spotify_playlist_id) is None:
         try:
@@ -267,10 +276,10 @@ def api_music():
 
     if spotify_track_id is None:
         return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
-    
+
     if len(spotify_track_id) != 22:
         return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
-    
+
     tracks = spotofy._load(TRACKS_CACHE_PATH)
     if tracks.get(spotify_track_id) is None:
         try:
@@ -285,15 +294,15 @@ def api_music():
     played_tracks = session["played_tracks"]
     if played_tracks is None:
         played_tracks = []
-    
+
     played_tracks.append(spotify_track_id)
     played_tracks = list(set(played_tracks))
     session["played_tracks"] = played_tracks
-    
+
     if track.get("youtube_id") is None:
         track_search = track["name"] + " "
-        for index, artist in enumerate(track["artists"]):
-            if not index == len(track["artists"]) - 1:
+        for i, artist in enumerate(track["artists"]):
+            if not i == len(track["artists"]) - 1:
                 track_search += artist["name"] + ", "
             else:
                 track_search += artist["name"] + " "
