@@ -27,6 +27,9 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from typing import Union, Optional, Tuple
 import hashlib
 
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.join(CURRENT_DIR, "templates")
+
 def generate_random_string(length: int, with_punctuation: bool = True, with_letters: bool = True):
     """
     Generates a random string
@@ -63,7 +66,9 @@ def render_template(file_name: str, **args) -> str:
     Function to load an HTML file and perform optional string replacements.
     """
 
-    if not os.path.isfile(file_name):
+    file_path = os.path.join(TEMPLATE_DIR, file_name)
+
+    if not os.path.isfile(file_path):
         raise FileNotFoundError("File '" + file_name + "' not found.")
 
     env = Environment(
@@ -71,7 +76,7 @@ def render_template(file_name: str, **args) -> str:
         undefined=SilentUndefined
     )
 
-    with open(file_name, "r", encoding = "utf-8") as file:
+    with open(file_path, "r", encoding = "utf-8") as file:
         html = file.read()
 
     template = env.from_string(html)
@@ -679,7 +684,11 @@ def get_youtube_id(search: str, spotify_id: Optional[str] = None) -> str:
             if youtube_search == search:
                 return search_data["youtube_id"]
 
-    response = requests.get("https://www.youtube.com/results?search_query=" + search.replace(" ", "+"), headers = {'User-Agent': random.choice(USER_AGENTS)})
+    response = requests.get(
+        "https://www.youtube.com/results?search_query=" + search.replace(" ", "+") + "&sp=EgIQAQ%253D%253D",
+        headers = {'User-Agent': random.choice(USER_AGENTS)},
+        timeout = 3
+    )
 
     video_id = re.findall(r"watch\?v=(\S{11})", response.content.decode())[0]
 
@@ -1402,10 +1411,10 @@ class Spotofy:
                 return [self.track(track_id) for track_id in recommendation_data["tracks"][:limit]]
 
         if len(total_seeds) > 5:
-            generated_seeds = random.sample(seed_artists + seed_genres + seed_tracks, 4)
+            generated_seeds = random.sample(seed_artists + seed_genres + seed_tracks, 5)
 
             while len(set(generated_seeds)) < 5:
-                generated_seeds = random.sample(seed_artists + seed_genres + seed_tracks, 4)
+                generated_seeds = random.sample(seed_artists + seed_genres + seed_tracks, 5)
 
             seed_artists = [seed for seed in generated_seeds if seed in seed_artists]
             seed_genres = [seed for seed in generated_seeds if seed in seed_genres]

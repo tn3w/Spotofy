@@ -189,20 +189,56 @@ log.setLevel(logging.WARNING)
 
 spotofy = Spotofy()
 
-@app.route("/") # FIXME: Add Post for search
+@app.route("/", methods = ["GET", "POST"])
 def index():
-    tracks = spotofy.recommendations(seed_genres=["pop", "electropop", "synthpop", "indie pop"], country=g.info["countryCode"])
+    "Returns the main page and the search function"
 
-    formatted_tracks = []
-    for track in tracks:
-        track["name"] = shorten_text(track["name"])
-        formatted_tracks.append(track)
+    sections = []
 
-    sections = [
-        {"title": "You might like this", "tracks": tracks[:8]},
-        {"title": "Do you know this already", "tracks": tracks[8:16]},
-    ]
-    return render_template(os.path.join(TEMPLATE_DIR, "index.html"), sections=sections)
+    session: Session = g.session
+
+    if request.method == "POST":
+        try:
+            search_q = request.form["q"].strip()
+        except:
+            pass
+        else:
+            if not search_q == "" and not len(search_q) > 40:
+                results = spotofy.search(search_q)
+                num_results = len(results["tracks"]) + len(results["playlists"]) + len(results["artists"])
+
+                if num_results == 0:
+                    sections.append({"title": "No search results were found", "tracks": []})
+                else:
+                    sections.extend([
+                        {"title": "Tracks found", "tracks": results["tracks"]},
+                        {"title": "Playlists found", "tracks": results["playlists"]},
+                        {"title": "Artists found", "tracks": results["artists"]}
+                    ])
+
+    if len(sections) == 0:
+        played_tracks = session["played_tracks"]
+        if played_tracks is None:
+            played_tracks = []
+
+        if len(played_tracks) != 0:
+            tracks = spotofy.recommendations(seed_tracks = played_tracks, country = g.info["countryCode"])
+        else:
+            tracks = spotofy.recommendations(seed_genres = ["pop", "electropop", "synthpop", "indie pop"], country = g.info["countryCode"])
+
+        formatted_tracks = []
+        for track in tracks:
+            track["name"] = shorten_text(track["name"])
+            formatted_tracks.append(track)
+
+        sections.extend([
+            {"title": "You might like this", "tracks": tracks[:8]},
+            {"title": "Do you know this already", "tracks": tracks[8:16]},
+        ])
+
+        if len(played_tracks) != 0:
+            sections.append({"title": "Recently played", "tracks": played_tracks[:8]})
+    return render_template("index.html", sections=sections)
 
 @app.route("/api/track")
 def api_track():
