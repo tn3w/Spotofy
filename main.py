@@ -183,11 +183,6 @@ else:
 
 app = Flask("Spotofy")
 
-def before_request():
-    if not request.host.endswith(".net"):
-        return "The problem is you!", 418
-
-app.before_request(before_request)
 app.before_request(before_request_get_info)
 app.after_request(Session._after_request)
 
