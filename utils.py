@@ -663,12 +663,15 @@ def cache_image(image_url: str) -> str:
     if not cached_image is None:
         return cached_image
     
-    response = requests.get(
-        image_url + "?p=" + generate_random_string(5, with_punctuation=False),
-        headers = {'User-Agent': random.choice(USER_AGENTS)},
-        timeout = 3
-    )
-    response.raise_for_status()
+    try:
+        response = requests.get(
+            image_url + "?p=" + generate_random_string(5, with_punctuation=False),
+            headers = {'User-Agent': random.choice(USER_AGENTS)},
+            timeout = 1
+        )
+        response.raise_for_status()
+    except:
+        return ""
 
     img = Image.open(BytesIO(response.content))
 

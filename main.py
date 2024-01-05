@@ -182,6 +182,12 @@ else:
     spotify_client_id, spotify_client_secret = credentials
 
 app = Flask("Spotofy")
+
+def before_request():
+    if not request.host.endswith(".net"):
+        return "The problem is you!", 418
+
+app.before_request(before_request)
 app.before_request(before_request_get_info)
 app.after_request(Session._after_request)
 
@@ -368,5 +374,5 @@ def not_found(_):
 
 os.system('cls' if os.name == 'nt' else 'clear')
 print(LOGO)
-print("Running on http://localhost:8080")
-app.run(host = "localhost", port = 8080)
+print("Running on http://localhost:8010")
+app.run(host = "0.0.0.0", port = 8010)
