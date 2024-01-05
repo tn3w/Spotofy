@@ -11,13 +11,14 @@ from time import time
 from PIL import Image
 from io import BytesIO
 import yt_dlp
+from pytube import YouTube
 import distro
 from collections import Counter
 from threading import Lock, Thread
 from spotipy import Spotify, client
 from flask import request, g, Response
 from spotipy.oauth2 import SpotifyClientCredentials
-from base64 import urlsafe_b64encode, urlsafe_b64decode
+from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, padding
 from jinja2 import Environment, select_autoescape, Undefined
@@ -330,10 +331,8 @@ class Session(dict):
 
     @staticmethod
     def _get_session(session_id: str, session_token: Optional[str] = None) -> Tuple[Optional[str], Optional[list]]:
-        if os.path.isfile(SESSIONS_PATH):
-            sessions = JSON.load(SESSIONS_PATH)
-        else:
-            sessions = {}
+        sessions = JSON.load(SESSIONS_PATH)
+
         for hashed_session_id, session_data in sessions.items():
             session_id_comparison = FastHashing().compare(session_id, hashed_session_id)
             if session_id_comparison:
@@ -367,10 +366,7 @@ class Session(dict):
         if request.cookies.get("use_cookies", "1") == "0":
             return
         if self.session_id is None:
-            if os.path.isfile(SESSIONS_PATH):
-                sessions = JSON.load(SESSIONS_PATH)
-            else:
-                sessions = {}
+            sessions = JSON.load(SESSIONS_PATH)
 
             session_id = generate_random_string(10, with_punctuation = False)
             while any([FastHashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions.items()]):
@@ -401,11 +397,7 @@ class Session(dict):
             data[key] = value
             encrypted_data = symmetric_crypto.encrypt(json.dumps(data))
 
-            if os.path.isfile(SESSIONS_PATH):
-                sessions = JSON.load(SESSIONS_PATH)
-            else:
-                sessions = {}
-
+            sessions = JSON.load(SESSIONS_PATH)
             session_data["data"] = encrypted_data
 
             sessions[hashed_session_id] = session_data
@@ -653,36 +645,93 @@ def get_image_color(image_url: str):
 
     return None
 
-YOUTUBE_IDS_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-ids-cache.json")
+IMAGES_CACHE_PATH = os.path.join(CACHE_DIR, "images.json")
 
-def get_youtube_id(search: str, spotify_id: Optional[str] = None) -> str:
+def cache_image(image_url: str) -> str:
+    """
+    Saves an image for the user and returns it without making a request to the image server
+
+    :param image_url: The URL to the requested image
+    """
+
+    cached_images = JSON.load(IMAGES_CACHE_PATH)
+
+    image_name = image_url.replace("https://i.ytimg.com/vi/", "")\
+        .replace("/mqdefault.jpg", "").replace("https://i.scdn.co/image/", "")
+    
+    cached_image = cached_images.get(image_name)
+    if not cached_image is None:
+        return cached_image
+    
+    response = requests.get(
+        image_url + "?p=" + generate_random_string(5, with_punctuation=False),
+        headers = {'User-Agent': random.choice(USER_AGENTS)},
+        timeout = 3
+    )
+    response.raise_for_status()
+
+    img = Image.open(BytesIO(response.content))
+
+    buffered = BytesIO()
+    img.save(buffered, format="WEBP", quality=85)
+
+    base64_image = b64encode(buffered.getvalue()).decode('utf-8')
+
+    cached_images = JSON.load(IMAGES_CACHE_PATH)
+    cached_images[image_name] = base64_image
+
+    JSON.dump(cached_images, IMAGES_CACHE_PATH)
+
+    return base64_image
+
+def preload_images(objects: list) -> list:
+    cached_images = JSON.load(IMAGES_CACHE_PATH)
+
+    new_objects = []
+    for object in objects:
+        image_url = object["image"]
+
+        t = Thread(target = cache_image, args = (image_url, ))
+        t.start()
+
+        image_name = image_url.replace("https://i.ytimg.com/vi/", "")\
+            .replace("/mqdefault.jpg", "").replace("https://i.scdn.co/image/", "")
+        
+        cached_image = cached_images.get(image_name)
+        if not cached_image is None:
+            object["image"] = "data:image/webp;base64," + cached_image
+        new_objects.append(object)
+    
+    return new_objects
+
+YOUTUBE_SEARCH_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-search.json")
+
+def search_youtube_ids(search: str, spotify_id: Optional[str] = None) -> str:
     """
     Function to get a YouTube video ID based on a search term
 
     :param search: Search term after searching for video ids on YouTube
+    :param spotify_id: The ID of the Spotify track to save with
     """
 
-    if os.path.isfile(YOUTUBE_IDS_CACHE_PATH):
-        youtube_ids = JSON.load(YOUTUBE_IDS_CACHE_PATH)
+    youtube_ids = JSON.load(YOUTUBE_SEARCH_CACHE_PATH)
 
-        copy_youtube_ids = youtube_ids.copy()
-        for youtube_search, search_data in youtube_ids.items():
-            if search_data["time"] + 2592000 < int(time()):
-                del copy_youtube_ids[youtube_search]
+    copy_youtube_ids = youtube_ids.copy()
+    for youtube_search, search_data in youtube_ids.items():
+        if search_data["time"] + 2592000 < int(time()):
+            del copy_youtube_ids[youtube_search]
 
-        if len(copy_youtube_ids) != len(youtube_ids):
-            JSON.dump(copy_youtube_ids, YOUTUBE_IDS_CACHE_PATH)
-            youtube_ids = copy_youtube_ids
-    else:
-        youtube_ids = {}
+    if len(copy_youtube_ids) != len(youtube_ids):
+        JSON.dump(copy_youtube_ids, YOUTUBE_SEARCH_CACHE_PATH)
+        youtube_ids = copy_youtube_ids
 
     for youtube_search, search_data in youtube_ids.items():
         if not spotify_id is None:
             if search_data["spotify_id"] == spotify_id:
-                return search_data["youtube_id"]
+                return search_data["youtube_ids"]
         else:
             if youtube_search == search:
-                return search_data["youtube_id"]
+                return search_data["youtube_ids"]
 
     response = requests.get(
         "https://www.youtube.com/results?search_query=" + search.replace(" ", "+") + "&sp=EgIQAQ%253D%253D",
@@ -690,24 +739,61 @@ def get_youtube_id(search: str, spotify_id: Optional[str] = None) -> str:
         timeout = 3
     )
 
-    video_id = re.findall(r"watch\?v=(\S{11})", response.content.decode())[0]
+    video_ids = re.findall(r"watch\?v=(\S{11})", response.content.decode())
+    video_ids = list(dict.fromkeys(video_ids).keys())
 
-    if os.path.isfile(YOUTUBE_IDS_CACHE_PATH):
-        youtube_videos = JSON.load(YOUTUBE_IDS_CACHE_PATH)
-    else:
-        youtube_videos = {}
-
+    youtube_videos = JSON.load(YOUTUBE_SEARCH_CACHE_PATH)
     youtube_videos[search] = {
-        "youtube_id": video_id,
+        "youtube_ids": video_ids,
         "spotify_id": spotify_id,
         "time": int(time())
     }
 
-    JSON.dump(youtube_videos, YOUTUBE_IDS_CACHE_PATH)
+    JSON.dump(youtube_videos, YOUTUBE_SEARCH_CACHE_PATH)
 
-    return video_id
+    return video_ids
 
-SPOTIFY_CANVAS_CACHE_PATH = os.path.join(CACHE_DIR, "spotify-canvas-cache.json")
+YOUTUBE_VIDEOS_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-videos.json")
+
+def get_youtube_video(video_id: str) -> dict:
+    """
+    Function for requesting information about a YouTube video
+
+    :param video_id: The YouTube Video ID
+    """
+
+    youtube_videos = JSON.load(YOUTUBE_VIDEOS_CACHE_PATH)
+
+    copy_youtube_videos = youtube_videos.copy()
+    for youtube_id, video_info in youtube_videos.items():
+        if video_info["time"] + 31557600 < int(time()):
+            del copy_youtube_videos[youtube_id]
+
+    if len(copy_youtube_videos) != len(youtube_videos):
+        JSON.dump(copy_youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
+        youtube_videos = copy_youtube_videos
+
+    cached_video = youtube_videos.get(video_id)
+    if not cached_video is None:
+        return cached_video
+
+    yt = YouTube(video_id)
+    video_info = {
+        "title": yt.title,
+        "duration": yt.length,
+        "time": int(time())
+    }
+
+    youtube_videos = JSON.load(YOUTUBE_VIDEOS_CACHE_PATH)
+    youtube_videos[video_id] = video_info
+
+    JSON.dump(youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
+
+    del youtube_videos["time"]
+
+    return video_info
+
+SPOTIFY_CANVAS_CACHE_PATH = os.path.join(CACHE_DIR, "spotify-canvas.json")
 
 def get_canvas_url(spotify_track_id: str) -> str:
     """
@@ -724,19 +810,16 @@ def get_canvas_url(spotify_track_id: str) -> str:
         except:
             return
  
-    if os.path.isfile(SPOTIFY_CANVAS_CACHE_PATH):
-        spotify_canvas = JSON.load(SPOTIFY_CANVAS_CACHE_PATH)
+    spotify_canvas = JSON.load(SPOTIFY_CANVAS_CACHE_PATH)
 
-        copy_spotify_canvas = spotify_canvas.copy()
-        for track_id, canvas_data in spotify_canvas.items():
-            if canvas_data["time"] + 2592000 < int(time()):
-                del copy_spotify_canvas[track_id]
+    copy_spotify_canvas = spotify_canvas.copy()
+    for track_id, canvas_data in spotify_canvas.items():
+        if canvas_data["time"] + 2592000 < int(time()):
+            del copy_spotify_canvas[track_id]
 
-        if len(copy_spotify_canvas) != len(spotify_canvas):
-            JSON.dump(copy_spotify_canvas, SPOTIFY_CANVAS_CACHE_PATH)
-            spotify_canvas = copy_spotify_canvas
-    else:
-        spotify_canvas = {}
+    if len(copy_spotify_canvas) != len(spotify_canvas):
+        JSON.dump(copy_spotify_canvas, SPOTIFY_CANVAS_CACHE_PATH)
+        spotify_canvas = copy_spotify_canvas
 
     for track_id, canvas_data in spotify_canvas.items():
         if track_id == spotify_track_id:
@@ -929,7 +1012,7 @@ class Spotofy:
                 track_search += artist["name"] + " "
         track_search += "Full Lyrics"
 
-        youtube_id = get_youtube_id(track_search, spotify_track_id)
+        youtube_id = search_youtube_ids(track_search, spotify_track_id)[0]
         image_theme = get_image_color(track["image"])
 
         tracks = Spotofy._load(TRACKS_CACHE_PATH)
@@ -970,19 +1053,17 @@ class Spotofy:
         :param cache_time: How long data should be stored
         """
 
-        if os.path.isfile(cache_path):
-            dictionary = JSON.load(cache_path)
+        dictionary = JSON.load(cache_path)
 
-            copy_dictionary = dictionary.copy()
-            for item_id, item_data in dictionary.items():
-                if item_data["time"] + cache_time < int(time()):
-                    del copy_dictionary[item_id]
+        copy_dictionary = dictionary.copy()
+        for item_id, item_data in dictionary.items():
+            if item_data["time"] + cache_time < int(time()):
+                del copy_dictionary[item_id]
 
-            if len(copy_dictionary) != len(dictionary):
-                JSON.dump(copy_dictionary, cache_path)
+        if len(copy_dictionary) != len(dictionary):
+            JSON.dump(copy_dictionary, cache_path)
 
-            return copy_dictionary
-        return {}
+        return copy_dictionary
 
     def track(self, spotify_track_id: str) -> dict:
         """
@@ -1101,19 +1182,7 @@ class Spotofy:
             self._reconnect()
             artist_top_tracks = self.spotify.artist_top_tracks(artist_id = spotify_artist_id, country = country)
 
-        if os.path.isfile(TRACKS_CACHE_PATH):
-            tracks = JSON.load(TRACKS_CACHE_PATH)
-
-            copy_tracks = tracks.copy()
-            for track_id, track_data in tracks.items():
-                if track_data["time"] + 2592000 < int(time()):
-                    del copy_tracks[track_id]
-
-            if len(copy_tracks) != len(tracks):
-                JSON.dump(copy_tracks, TRACKS_CACHE_PATH)
-                tracks = copy_tracks
-        else:
-            tracks = {}
+        tracks = Spotofy._load(TRACKS_CACHE_PATH)
 
         top_tracks = []
 

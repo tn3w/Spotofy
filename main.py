@@ -13,8 +13,8 @@ from flask import Flask, request, send_file, g
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
-from utils import Session, Spotofy, Linux, get_music, get_youtube_id,\
-                  render_template, before_request_get_info, shorten_text
+from utils import Session, Spotofy, Linux, get_music, search_youtube_ids,\
+                  render_template, before_request_get_info, shorten_text, preload_images
 
 if __name__ != "__main__":
     exit()
@@ -24,7 +24,8 @@ LOGO = r"""   _____             __        ____
   \__ \/ __ \/ __ \/ __/ __ \/ /_/ / / /
  ___/ / /_/ / /_/ / /_/ /_/ / __/ /_/ / 
 /____/ .___/\____/\__/\____/_/  \__, /  
-    /_/                        /____/\n"""
+    /_/                        /____/
+"""
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(CURRENT_DIR, "templates")
@@ -230,6 +231,8 @@ def index():
         for track in tracks:
             track["name"] = shorten_text(track["name"])
             formatted_tracks.append(track)
+        
+        tracks = preload_images(tracks)
 
         sections.extend([
             {"title": "You might like this", "tracks": tracks[:8]},
@@ -237,7 +240,14 @@ def index():
         ])
 
         if len(played_tracks) != 0:
-            sections.append({"title": "Recently played", "tracks": played_tracks[:8]})
+            new_tracks = []
+            for track_id in played_tracks:
+                track = spotofy.track(track_id)
+                new_tracks.append(track)
+
+            new_tracks = preload_images(new_tracks)
+
+            sections.append({"title": "Recently played", "tracks": new_tracks[:8]})
     return render_template("index.html", sections=sections)
 
 @app.route("/api/track")
@@ -344,7 +354,7 @@ def api_music():
                 track_search += artist["name"] + " "
         track_search += "Full Lyrics"
 
-        youtube_id = get_youtube_id(track_search, spotify_track_id)
+        youtube_id = search_youtube_ids(track_search, spotify_track_id)[0]
     else:
         youtube_id = track.get("youtube_id")
 
