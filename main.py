@@ -343,7 +343,7 @@ def api_music():
         played_tracks = []
 
     played_tracks.append(spotify_track_id)
-    played_tracks = list(set(played_tracks))
+    played_tracks = list(dict.fromkeys(played_tracks).keys())
     session["played_tracks"] = played_tracks
 
     if track.get("youtube_id") is None:
