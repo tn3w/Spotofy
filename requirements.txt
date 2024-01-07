@@ -1,8 +1,8 @@
 flask
 requests
-spotipy
-numpy
-Pillow
+numpy>=1.22.2
+pillow>=10.0.1
+werkzeug>=2.3.8
 yt-dlp
 cryptography
 jinja2
