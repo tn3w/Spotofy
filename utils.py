@@ -1,3 +1,8 @@
+"""
+This open-source software, named 'Spotofy,' is distributed under the Apache 2.0 license.
+GitHub: https://github.com/tn3w/Spotofy
+"""
+
 import os
 import re
 import json
@@ -5,6 +10,7 @@ import random
 import ipaddress
 import secrets
 import requests
+import concurrent.futures
 import subprocess
 import numpy as np
 from time import time
@@ -647,64 +653,62 @@ def get_image_color(image_url: str):
 
 IMAGES_CACHE_PATH = os.path.join(CACHE_DIR, "images.json")
 
-def cache_image(image_url: str) -> str:
-    """
-    Saves an image for the user and returns it without making a request to the image server
-
-    :param image_url: The URL to the requested image
-    """
-
-    cached_images = JSON.load(IMAGES_CACHE_PATH)
-
+def remove_image_url(image_url):
     image_name = image_url.replace("https://i.ytimg.com/vi/", "")\
         .replace("/mqdefault.jpg", "").replace("https://i.scdn.co/image/", "")
-    
-    cached_image = cached_images.get(image_name)
-    if not cached_image is None:
-        return cached_image
-    
-    try:
-        response = requests.get(
-            image_url + "?p=" + generate_random_string(5, with_punctuation=False),
-            headers = {'User-Agent': random.choice(USER_AGENTS)},
-            timeout = 1
-        )
-        response.raise_for_status()
-    except:
-        return ""
-
-    img = Image.open(BytesIO(response.content))
-
-    buffered = BytesIO()
-    img.save(buffered, format="WEBP", quality=85)
-
-    base64_image = b64encode(buffered.getvalue()).decode('utf-8')
-
-    cached_images = JSON.load(IMAGES_CACHE_PATH)
-    cached_images[image_name] = base64_image
-
-    JSON.dump(cached_images, IMAGES_CACHE_PATH)
-
-    return base64_image
+    return image_name
 
 def preload_images(objects: list) -> list:
     cached_images = JSON.load(IMAGES_CACHE_PATH)
 
-    new_objects = []
-    for object in objects:
+    def process_object(object):
         image_url = object["image"]
+        image_name = remove_image_url(image_url)
 
-        t = Thread(target = cache_image, args = (image_url, ))
-        t.start()
-
-        image_name = image_url.replace("https://i.ytimg.com/vi/", "")\
-            .replace("/mqdefault.jpg", "").replace("https://i.scdn.co/image/", "")
-        
         cached_image = cached_images.get(image_name)
-        if not cached_image is None:
+        if cached_image is not None:
             object["image"] = "data:image/webp;base64," + cached_image
-        new_objects.append(object)
-    
+            return object
+
+        return None
+
+    def cache_image_in_background(image_url):
+        try:
+            response = requests.get(
+                image_url + "?p=" + generate_random_string(5, with_punctuation=False),
+                headers={'User-Agent': random.choice(USER_AGENTS)},
+                timeout=1
+            )
+            response.raise_for_status()
+        except:
+            return
+
+        img = Image.open(BytesIO(response.content))
+        buffered = BytesIO()
+        img.save(buffered, format="WEBP", quality=85)
+
+        base64_image = b64encode(buffered.getvalue()).decode('utf-8')
+
+        image_name = remove_image_url(image_url)
+
+        cached_images[image_name] = base64_image
+        JSON.dump(cached_images, IMAGES_CACHE_PATH)
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_to_object = {executor.submit(process_object, obj): obj for obj in objects}
+
+        new_objects = []
+        for future in concurrent.futures.as_completed(future_to_object):
+            obj = future_to_object[future]
+            try:
+                result = future.result()
+                if result is not None:
+                    new_objects.append(result)
+                else:
+                    executor.submit(cache_image_in_background, obj["image"])
+            except Exception as e:
+                print(f"Error processing object: {e}")
+
     return new_objects
 
 YOUTUBE_SEARCH_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-search.json")

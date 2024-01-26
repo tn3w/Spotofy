@@ -1,6 +1,6 @@
 """
-Free software "Spotofy" licensed under Apache 2.0.
-https://github.com/tn3w/Spotofy
+This open-source software, named 'Spotofy' is distributed under the Apache 2.0 license.
+GitHub: https://github.com/tn3w/Spotofy
 """
 
 import os
@@ -253,13 +253,17 @@ def index():
 
 @app.route("/api/track")
 def api_track():
+    """
+    Api Route to query information about a specific track
+    e.g. `curl -X GET "https://example.com/api/track?spotify_track_id=7I3skNaQdvZSS7zXY2VHId" -H "Content-Type: application/json"`
+
+    :arg spotify_track_id: The ID of the Spotify track
+    """
+
     spotify_track_id = request.args.get("spotify_track_id")
 
-    if spotify_track_id is None:
-        return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
-
-    if len(spotify_track_id) != 22:
-        return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
+    if spotify_track_id is None: return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
+    if len(spotify_track_id) != 22: return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
 
     tracks = spotofy._load(TRACKS_CACHE_PATH)
     if tracks.get(spotify_track_id) is None:
@@ -274,13 +278,17 @@ def api_track():
 
 @app.route("/api/artist")
 def api_artist():
+    """
+    Api Route to query information about a specific artist
+    e.g. `curl -X GET "https://example.com/api/artist?spotify_artist_id=3YQKmKGau1PzlVlkL1iodx" -H "Content-Type: application/json"`
+
+    :arg spotify_artist_id: The ID of the Spotify artist
+    """
+
     spotify_artist_id = request.args.get("spotify_artist_id")
 
-    if spotify_artist_id is None:
-        return {"status_code": 400, "error": "Bad Request - The spotify_artist_id parameter is not given."}, 400
-
-    if len(spotify_artist_id) != 22:
-        return {"status_code": 400, "error": "Bad Request - The Spotify artist ID given in spotify_artist_id is incorrect."}, 400
+    if spotify_artist_id is None: return {"status_code": 400, "error": "Bad Request - The spotify_artist_id parameter is not given."}, 400
+    if len(spotify_artist_id) != 22: return {"status_code": 400, "error": "Bad Request - The Spotify artist ID given in spotify_artist_id is incorrect."}, 400
 
     artists = spotofy._load(ARTISTS_CACHE_PATH)
     if artists.get(spotify_artist_id) is None:
@@ -288,25 +296,27 @@ def api_artist():
             return spotofy.artist(spotify_artist_id)
         except:
             return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
-    else:
-        return artists.get(spotify_artist_id)
+    return artists.get(spotify_artist_id)
 
 @app.route("/api/playlist")
 def api_playlist():
+    """
+    Api Route to query information about a specific playlist
+    e.g. `curl -X GET "https://example.com/api/playlist?spotify_playlist_id=37i9dQZF1E4yrYiQJfy370&limit=20" -H "Content-Type: application/json"`
+
+    :arg spotify_playlist_id: The ID of the Spotify playlist
+    :arg limit: How many tracks contained in the playlist should be returned
+    """
+
     spotify_playlist_id = request.args.get("spotify_playlist_id")
-    limit = request.args.get("limit")
 
-    if spotify_playlist_id is None:
-        return {"status_code": 400, "error": "Bad Request - The spotify_artist_id parameter is not given."}, 400
+    if spotify_playlist_id is None: return {"status_code": 400, "error": "Bad Request - The spotify_playlist_id parameter is not given."}, 400
+    if len(spotify_playlist_id) != 22: return {"status_code": 400, "error": "Bad Request - The Spotify playlist ID given in spotify_playlist_id is incorrect."}, 400
 
-    if limit is None:
-        limit = 100
-    else:
-        try:
-            if int(limit) > 100:
-                return {"status_code": 400, "error": "Bad Request - The limit parameter must not be greater than 100."}, 400
-        except:
-            return {"status_code": 400, "error": "Bad Request - The limit parameter must be an integer."}, 400
+    limit = request.args.get("limit", 50)
+
+    if not limit.isdigit(): return {"status_code": 400, "error": "Bad Request - The limit parameter must be an integer."}, 400
+    if int(limit) > 100: return {"status_code": 400, "error": "Bad Request - The limit parameter must not be greater than 100."}, 400
 
     playlists = spotofy._load(PLAYLISTS_CACHE_PATH)
     if playlists.get(spotify_playlist_id) is None:
@@ -314,18 +324,21 @@ def api_playlist():
             return spotofy.playlist(spotify_playlist_id, limit)
         except:
             return {"status_code": 400, "error": "Bad Request - The Spotify playlist ID given in spotify_playlist_id is incorrect."}, 400
-    else:
-        return playlists.get(spotify_playlist_id)
+    return playlists.get(spotify_playlist_id)
     
 @app.route("/api/music")
 def api_music():
+    """
+    Api route to query music of a specific track
+    e.g. `curl -o TheHype_TwentyOnePilots.mp3 "https://example.com/api/music?spotify_track_id=7I3skNaQdvZSS7zXY2VHId"`
+
+    :arg spotify_track_id: The ID of the Spotify track
+    """
+
     spotify_track_id = request.args.get("spotify_track_id")
 
-    if spotify_track_id is None:
-        return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
-
-    if len(spotify_track_id) != 22:
-        return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
+    if spotify_track_id is None: return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
+    if len(spotify_track_id) != 22: return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
 
     tracks = spotofy._load(TRACKS_CACHE_PATH)
     if tracks.get(spotify_track_id) is None:
@@ -361,10 +374,33 @@ def api_music():
 
     music_path = get_music(youtube_id, track["duration_ms"])
 
-    return send_file(music_path)
+    file_name = track["name"].replace(" ", "") + "_" + track["artists"][0]["name"].replace(" ", "") + ".mp3"
+    return send_file(music_path, as_attachment = True, download_name = file_name, max_age = 3600)
+
+@app.route("/api/search")
+def api_search():
+    """
+    Api Route to search for tracks, playlists and artists
+    e.g. `curl -X GET "https://example.com/api/search?q=The%20Hype%20TwentyOnePilots&max_results=16" -H "Content-Type: application/json"`
+
+    :arg q: What to search for
+    :arg max_results: How many results should be returned per section
+    """
+
+    q = request.args.get("q")
+    if q is None: return {"status_code": 400, "error": "Bad Request - The q parameter is not given."}, 400
+    
+    max_results = request.args.get("max_results", 8)
+
+    if max_results > 20: return {"status_code": 400, "error": "Bad Request - The max_results parameter cannot be greater than 20."}, 400
+    if max_results == 0: return {"status_code": 400, "error": "The max_results parameter cannot be 0."}, 400
+
+    return "", 404
 
 @app.errorhandler(404)
 def not_found(_):
+    "Route to return a 404 error when a page cannot be found"
+
     return render_template(os.path.join(TEMPLATE_DIR, "404.html"))
 
 os.system('cls' if os.name == 'nt' else 'clear')
