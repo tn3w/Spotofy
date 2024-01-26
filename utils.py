@@ -1,5 +1,5 @@
 """
-This open-source software, named 'Spotofy,' is distributed under the Apache 2.0 license.
+This open-source software, named 'Spotofy' is distributed under the Apache 2.0 license.
 GitHub: https://github.com/tn3w/Spotofy
 """
 
