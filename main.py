@@ -400,7 +400,7 @@ def api_youtube_music():
     if not re.match(r'^[a-zA-Z0-9_-]+$', youtube_id): return {"status_code": 400, "error": "Bad Request - The YouTube Video ID given in youtube_id is incorrect."}, 400
 
     try:
-        video_data = YouTube._complete_video_data(youtube_id)
+        video_data = YouTube.get_video(youtube_id)
     except Exception as e:
         return {"status_code": 400, "error": "Bad Request - The YouTube Video ID given in youtube_id is incorrect."}, 400
     

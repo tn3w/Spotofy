@@ -729,72 +729,9 @@ def get_image_color(image_url: str):
 
 YOUTUBE_SEARCH_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-search.json")
 YOUTUBE_VIDEOS_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-videos.json")
-youtube_video_executor = concurrent.futures.ThreadPoolExecutor()
 
 class YouTube:
     "Class that includes all functions that have something to do with YouTube"
-
-    @staticmethod
-    def _complete_video_data(video_id: str) -> dict:
-        """
-        Function for requesting information about a YouTube video
-
-        :param video_id: The YouTube Video ID
-        """
-
-        youtube_videos = JSON.load(YOUTUBE_VIDEOS_CACHE_PATH)
-
-        copy_youtube_videos = youtube_videos.copy()
-        for youtube_id, video_info in youtube_videos.items():
-            if video_info["time"] + 31557600 < int(time()):
-                del copy_youtube_videos[youtube_id]
-
-        if len(copy_youtube_videos) != len(youtube_videos):
-            JSON.dump(copy_youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
-            youtube_videos = copy_youtube_videos
-
-        cached_video = youtube_videos.get(video_id)
-        if cached_video is not None:
-            if cached_video.get("duration") is not None:
-                return cached_video
-        
-        yt = pytube.YouTube("https://youtube.com/watch?v=" + video_id)
-        video_info = {
-            "name": yt.title,
-            "duration": yt.length,
-            "artist": yt.author,
-            "time": int(time())
-        }
-
-        youtube_videos = JSON.load(YOUTUBE_VIDEOS_CACHE_PATH)
-        youtube_videos[video_id] = video_info
-
-        JSON.dump(youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
-
-        del video_info["time"]
-
-        return video_info
-    
-    @staticmethod
-    def get_information_about_videos(video_ids: list) -> list:
-        """
-        Function to get information about many YouTube videos
-
-        :param video_ids: A list of YouTube Video IDs
-        """
-
-        videos = []
-        for video_id in video_ids:
-            video = YouTube.get_video(video_id)
-            if video.get("name") is None: continue
-            if "#short" in video["name"]: continue
-            
-            if video.get("duration") is not None:
-                if video.get("duration", 421) > 420: continue
-            video["image"] = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
-            videos.append(video)
-        
-        return videos
 
     @staticmethod
     def search_ids(search: str, spotify_id: Optional[str] = None) -> Optional[list]:
@@ -849,7 +786,7 @@ class YouTube:
         return video_ids
 
     @staticmethod
-    def get_video(video_id: str) -> Optional[dict]:
+    def get_video(video_id: str) -> dict:
         """
         Function for requesting information about a YouTube video
 
@@ -869,24 +806,13 @@ class YouTube:
 
         cached_video = youtube_videos.get(video_id)
         if cached_video is not None:
-            if cached_video.get("duration") is None:
-                youtube_video_executor.submit(YouTube._complete_video_data, video_id)
             return cached_video
         
-        try:
-            response = requests.get(
-                f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}",
-                headers = {'User-Agent': random.choice(USER_AGENTS)},
-                timeout = 3
-            )
-            response.raise_for_status()
-            response_data = response.json()
-        except:
-           return None
-
+        yt = pytube.YouTube("https://youtube.com/watch?v=" + video_id)
         video_info = {
-            "name": response_data.get("title"),
-            "artist": response_data.get("author_name"),
+            "name": yt.title,
+            "duration": yt.length,
+            "artist": yt.author,
             "time": int(time())
         }
 
@@ -895,11 +821,30 @@ class YouTube:
 
         JSON.dump(youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
 
-        youtube_video_executor.submit(YouTube._complete_video_data, video_id)
-
-        del youtube_videos["time"]
+        del video_info["time"]
 
         return video_info
+    
+    @staticmethod
+    def get_information_about_videos(video_ids: list) -> list:
+        """
+        Function to get information about many YouTube videos
+
+        :param video_ids: A list of YouTube Video IDs
+        """
+
+        videos = []
+        for video_id in video_ids:
+            video = YouTube.get_video(video_id)
+            if video.get("name") is None: continue
+            if "#short" in video["name"]: continue
+            
+            if video.get("duration") is not None:
+                if video.get("duration", 421) > 420: continue
+            video["image"] = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+            videos.append(video)
+        
+        return videos
 
 SPOTIFY_CANVAS_CACHE_PATH = os.path.join(CACHE_DIR, "spotify-canvas.json")
 
