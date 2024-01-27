@@ -374,6 +374,9 @@ def api_music():
 
     music_path = get_music(youtube_id, track["duration_ms"])
 
+    if music_path is None:
+        return {"status_code": 500, "error": "Internal Server Error - An error occurred during your request."}, 500
+
     file_name = track["name"].replace(" ", "") + "_" + track["artists"][0]["name"].replace(" ", "") + ".mp3"
     return send_file(music_path, as_attachment = True, download_name = file_name, max_age = 3600)
 
@@ -392,8 +395,9 @@ def api_search():
     
     max_results = request.args.get("max_results", 8)
 
-    if max_results > 20: return {"status_code": 400, "error": "Bad Request - The max_results parameter cannot be greater than 20."}, 400
-    if max_results == 0: return {"status_code": 400, "error": "The max_results parameter cannot be 0."}, 400
+    if not max_results.isdigit(): return {"status_code": 400, "error": "Bad Request - The max_results parameter must be an integer."}, 400
+    if int(max_results) > 20: return {"status_code": 400, "error": "Bad Request - The max_results parameter cannot be greater than 20."}, 400
+    if int(max_results) == 0: return {"status_code": 400, "error": "Bad Request - The max_results parameter cannot be 0."}, 400
 
     return "", 404
 

@@ -505,6 +505,13 @@
         </div>
 
         <script>
+            function error_handler(error) {
+                const styledError = `%c[Exception] ${error}`;
+                const style = 'color: red; font-weight: bold;';
+
+                console.log(styledError, style);
+            }
+
             function getCookie(name, defaultValue = null) {
                 const decodedName = decodeURIComponent(name) + "=";
                 const cookies = document.cookie.split(';');
@@ -540,13 +547,17 @@
             function show(object) {
                 try {
                     object.style.display = "block";
-                } catch {}
+                } catch (error) {
+                    error_handler(error);
+                }
             }
 
             function hide(object) {
                 try {
                     object.style.display = "none";
-                } catch {}
+                } catch (error) {
+                    error_handler(error);
+                }
             }
 
             var playImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAQAAACJ4248AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAAqo0jMgAAAAlwSFlzAAAAYAAAAGAA8GtCzwAAAAd0SU1FB+cLHA4tGn1c1jMAAAHpSURBVFjDxZe/LwNxGMaf95vGGRkwS2ps2sRm83MxNroZWSQNiYTBYLzBYGUwSCz9Awyi2kkkQqSd5EowMjAQJPU+hnMEqdb1fnzGu3vzfvLemzd5gA/ITIZ6fEw+P5OVCjWfp1oWooBqWeTNDX+iFxdkNhuBwPg4/0JLJTKTCVFgZoZNqdepm5vU3t7gBTg311zAm8bjI7m6SnZ2xiPwieNQp6ba7W38lyaTkEKBPDigptMxCHgMD0NOT8ntbT/7EYAAABgDTE9Dzs/JpaX/3I+ABDy6ugDbhlSrre5HwAIeAwOQQoG6v09NpWIQ+EBGR9392Nig9vRELwAASCSA2dmv/ejoiFjAo7vb3Y/DQ7K/PwYBj8FBYG/Pu6QxCABAMglMTsYoAABkjAKOA+zuxiRwcgJMTIi8vEQscH8PLC+DQ0MiV1fe00T4jet1YGsLXFkRc3f38224AiwWgYUFMdVqo09C+gWOA+ZyYsbG/moewgQeHgDbBtfXxby+tlIRkIAqsLMDLi6Kub39T2UAAqUSOD8vplLxU93GDtRqYC4nMjLit7m/CfDpCbK2Bti2GPeYtE1rweTtzQ0mfX2BNP0u0CSasVwOOZpZFnl9/bvx5WUk4dSVSKepR0du9Do7o+bzgcavBrwDGNDmye1Tl8sAAAAASUVORK5CYII=";
@@ -659,7 +670,7 @@
                             show(searchContainer); hide(loadingContainer);
                         })
                         .catch(error => {
-                            console.error('Error fetching search results:', error);
+                            error_handler('Error fetching search results: ' + error)
                             show(mainContainer); hide(loadingContainer);
                         });
                 });
@@ -712,7 +723,9 @@
 
                     try {
                         musicPlayer.pause();
-                    } catch {};
+                    } catch (error) {
+                        error_handler(error);
+                    }
 
                     playbarActionsStart.src=loadingImage;
                     playbarActionsStart.classList.add('loading');
@@ -725,26 +738,41 @@
 
                     fetch(apiUrl)
                         .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
+                            const contentType = response.headers.get('content-type');
+                            if (contentType && contentType.includes('application/json')) {
+                                return response.json().then(data => {
+                                    error_handler(data.error);
+                                    throw new Error();
+                                });
                             }
+
+                            if (!response.ok) {
+                                error_handler('Network response was not ok');
+                                throw new Error();
+                            }
+
                             return response.blob();
                         })
                         .then(blob => {
-                            const audioUrl = URL.createObjectURL(blob);
-                            audioUrlCache[trackId] = audioUrl;
-                            
-                            musicPlayer.src = audioUrl;
+                            if (blob !== null) {
+                                const audioUrl = URL.createObjectURL(blob);
+                                audioUrlCache[trackId] = audioUrl;
+                                
+                                musicPlayer.src = audioUrl;
 
-                            musicPlayer.addEventListener('timeupdate', musicUpdateStatus);
-
-                            isLoading = false;
-                            playMusic();
+                                musicPlayer.addEventListener('timeupdate', musicUpdateStatus);
+                                musicPlayer.play();
+                                playbarActionsStart.src=pauseImage;
+                            }
                         })
                         .catch(error => {
-                            console.error('Error during fetch operation:', error);
+                            if (error.message !== "") {
+                                error_handler(error);
+                            }
+                            playbarActionsStart.src=playImage;
                         })
                         .finally(() => {
+                            isLoading = false;
                             playbarActionsStart.classList.remove('loading');
                         });
                 }
@@ -851,12 +879,10 @@
                     };
                 }
 
-                playbarActionsStart.onclick = function () {
-                    playMusic();
-                };
+                playbarActionsStart.onclick = playMusic;
 
                 document.addEventListener("keydown", function(event) {
-                    if (event.code === "Space") {
+                    if (event.code === "Space" && document.activeElement.tagName !== "INPUT") {
                         event.preventDefault();
                         if (isLoading) {
                             return;
@@ -864,7 +890,7 @@
                         try {
                             playMusic();
                         } catch (error) {
-                            console.log(error);
+                            error_handler(error);
                         };
                     };
                 });

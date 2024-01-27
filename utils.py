@@ -4,6 +4,7 @@ GitHub: https://github.com/tn3w/Spotofy
 """
 
 import os
+import sys
 import re
 import json
 import random
@@ -49,13 +50,52 @@ def generate_random_string(length: int, with_punctuation: bool = True, with_lett
     characters = "0123456789"
 
     if with_punctuation:
-        characters += "!\"#$%&'()*+,-.:;<=>?@[\]^_`{|}~"
+        characters += r"!\"#$%&'()*+,-.:;<=>?@[\]^_`{|}~"
 
     if with_letters:
         characters += "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
     random_string = ''.join(secrets.choice(characters) for _ in range(length))
     return random_string
+
+does_support_ansi_color = None
+
+def error(error_message: str) -> None:
+    """
+    Prints an error in the console
+
+    :param error_message: The error message
+    """
+
+    global does_support_ansi_color
+
+    def supports_ansi_color() -> bool:
+        "Function for caching the result of check_for_ansi_colors"
+
+        def check_for_ansi_colors():
+            "Function to check whether Ansi Color Escape Codes can be used in the console"
+
+            if sys.platform == 'win32' or sys.platform == 'cygwin':
+                return False
+
+            term_program = os.environ.get('TERM_PROGRAM', '')
+            if term_program.lower() == 'vscode':
+                return False
+
+            try:
+                return sys.stdout.isatty() and os.name == 'posix'
+            except AttributeError:
+                return False
+
+        if does_support_ansi_color is None:
+            does_support_ansi_color = check_for_ansi_colors()
+
+        return does_support_ansi_color
+    
+    if does_support_ansi_color is None:
+        print()
+
+    print("\033[91m" + error_message + "\033[0m") if supports_ansi_color() else print(error_message)
 
 def shorten_text(text: str, length: int = 22) -> str:
     "Shortens text to the given length and adds '...'"
@@ -882,7 +922,7 @@ def get_canvas_url(spotify_track_id: str) -> str:
 MUSIC_CACHE_DIR = os.path.join(CACHE_DIR, "music")
 FFMPEG_CONF_PATH = os.path.join(DATA_DIR, "FFmpeg.conf")
 
-def get_music(youtube_video_id: str, duration_ms: int) -> str:
+def get_music(youtube_video_id: str, duration_ms: int) -> Optional[str]:
     """
     Function to get the music file path of a YouTube video
 
@@ -931,18 +971,20 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
     if ffmpeg_path is None:
         ffmpeg_path = "ffmpeg"
 
+    ffmpeg_output_path = output_file.replace(".mp3", "output.mp3")
+
     cut_command = [
         ffmpeg_path,
         "-i", output_file,
         "-t", str(round(duration_ms / 1000) - 1),
-        output_file.replace(".mp3", "output.mp3")
+        ffmpeg_output_path
     ]
 
     try:
         subprocess.run(cut_command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except subprocess.CalledProcessError as e:
-        # FIXME: Log Error
-        pass
+    except Exception as e:
+        if os.path.isfile(ffmpeg_output_path): os.remove(ffmpeg_output_path)
+        error(f"[Error] An error occurred when cutting the FFmpeg music file: {e}")
     else:
         os.remove(output_file)
         os.rename(output_file.replace(".mp3", "output.mp3"), output_file)
@@ -952,7 +994,7 @@ def get_music(youtube_video_id: str, duration_ms: int) -> str:
         if file_youtube_id == youtube_video_id:
             return os.path.join(MUSIC_CACHE_DIR, file)
 
-    raise Exception("Something went wrong with the YouTube download...")
+    return None
 
 def remove_elements(source: dict, elements_to_remove: list):
     """
@@ -978,8 +1020,8 @@ class Spotofy:
 
     def __init__(self):
         with open(CREDENTIALS_PATH, "r", encoding = "utf-8") as file:
-            credentials = file.read().split("---")
-        self.spotify_client_id, self.spotify_client_secret = credentials
+            credentials = file.read().strip()
+        self.spotify_client_id, self.spotify_client_secret = credentials.split("---")[:2]
         self._reconnect()
 
     def _reconnect(self):
