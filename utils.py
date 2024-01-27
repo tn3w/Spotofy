@@ -18,7 +18,7 @@ from time import time
 from PIL import Image
 from io import BytesIO
 import yt_dlp
-from pytube import YouTube
+import pytube
 import distro
 from collections import Counter
 from threading import Lock
@@ -445,7 +445,7 @@ class Session(dict):
             while any([FastHashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions.items()]):
                 session_id = generate_random_string(10)
             hashed_session_id = FastHashing().hash(session_id)
-            
+
             session_token = generate_random_string(40)
             hashed_session_token = FastHashing().hash(session_token)
 
@@ -694,8 +694,16 @@ def get_image_color(image_url: str):
     if not isinstance(image_url, str):
         return None
 
-    response = requests.get(image_url, headers={"User-Agent": random.choice(USER_AGENTS)})
-    response.raise_for_status()
+    try:
+        response = requests.get(
+            image_url,
+            headers = {"User-Agent": random.choice(USER_AGENTS)},
+            timeout = 3
+        )
+        response.raise_for_status()
+    except:
+        return None
+    
     image = Image.open(BytesIO(response.content))
     image_np = np.array(image)
 
@@ -720,93 +728,178 @@ def get_image_color(image_url: str):
     return None
 
 YOUTUBE_SEARCH_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-search.json")
-
-def search_youtube_ids(search: str, spotify_id: Optional[str] = None) -> str:
-    """
-    Function to get a YouTube video ID based on a search term
-
-    :param search: Search term after searching for video ids on YouTube
-    :param spotify_id: The ID of the Spotify track to save with
-    """
-
-    youtube_ids = JSON.load(YOUTUBE_SEARCH_CACHE_PATH)
-
-    copy_youtube_ids = youtube_ids.copy()
-    for youtube_search, search_data in youtube_ids.items():
-        if search_data["time"] + 2592000 < int(time()):
-            del copy_youtube_ids[youtube_search]
-
-    if len(copy_youtube_ids) != len(youtube_ids):
-        JSON.dump(copy_youtube_ids, YOUTUBE_SEARCH_CACHE_PATH)
-        youtube_ids = copy_youtube_ids
-
-    for youtube_search, search_data in youtube_ids.items():
-        if not spotify_id is None:
-            if search_data["spotify_id"] == spotify_id:
-                return search_data["youtube_ids"]
-        else:
-            if youtube_search == search:
-                return search_data["youtube_ids"]
-
-    response = requests.get(
-        "https://www.youtube.com/results?search_query=" + search.replace(" ", "+") + "&sp=EgIQAQ%253D%253D",
-        headers = {'User-Agent': random.choice(USER_AGENTS)},
-        timeout = 3
-    )
-
-    video_ids = re.findall(r"watch\?v=(\S{11})", response.content.decode())
-    video_ids = list(dict.fromkeys(video_ids).keys())
-
-    youtube_videos = JSON.load(YOUTUBE_SEARCH_CACHE_PATH)
-    youtube_videos[search] = {
-        "youtube_ids": video_ids,
-        "spotify_id": spotify_id,
-        "time": int(time())
-    }
-
-    JSON.dump(youtube_videos, YOUTUBE_SEARCH_CACHE_PATH)
-
-    return video_ids
-
 YOUTUBE_VIDEOS_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-videos.json")
+youtube_video_executor = concurrent.futures.ThreadPoolExecutor()
 
-def get_youtube_video(video_id: str) -> dict:
-    """
-    Function for requesting information about a YouTube video
+class YouTube:
+    "Class that includes all functions that have something to do with YouTube"
 
-    :param video_id: The YouTube Video ID
-    """
+    @staticmethod
+    def _complete_video_data(video_id: str) -> dict:
+        """
+        Function for requesting information about a YouTube video
 
-    youtube_videos = JSON.load(YOUTUBE_VIDEOS_CACHE_PATH)
+        :param video_id: The YouTube Video ID
+        """
 
-    copy_youtube_videos = youtube_videos.copy()
-    for youtube_id, video_info in youtube_videos.items():
-        if video_info["time"] + 31557600 < int(time()):
-            del copy_youtube_videos[youtube_id]
+        youtube_videos = JSON.load(YOUTUBE_VIDEOS_CACHE_PATH)
 
-    if len(copy_youtube_videos) != len(youtube_videos):
-        JSON.dump(copy_youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
-        youtube_videos = copy_youtube_videos
+        copy_youtube_videos = youtube_videos.copy()
+        for youtube_id, video_info in youtube_videos.items():
+            if video_info["time"] + 31557600 < int(time()):
+                del copy_youtube_videos[youtube_id]
 
-    cached_video = youtube_videos.get(video_id)
-    if not cached_video is None:
-        return cached_video
+        if len(copy_youtube_videos) != len(youtube_videos):
+            JSON.dump(copy_youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
+            youtube_videos = copy_youtube_videos
 
-    yt = YouTube(video_id)
-    video_info = {
-        "title": yt.title,
-        "duration": yt.length,
-        "time": int(time())
-    }
+        cached_video = youtube_videos.get(video_id)
+        if cached_video is not None:
+            if cached_video.get("duration") is not None:
+                return cached_video
+        
+        yt = pytube.YouTube("https://youtube.com/watch?v=" + video_id)
+        video_info = {
+            "name": yt.title,
+            "duration": yt.length,
+            "artist": yt.author,
+            "time": int(time())
+        }
 
-    youtube_videos = JSON.load(YOUTUBE_VIDEOS_CACHE_PATH)
-    youtube_videos[video_id] = video_info
+        youtube_videos = JSON.load(YOUTUBE_VIDEOS_CACHE_PATH)
+        youtube_videos[video_id] = video_info
 
-    JSON.dump(youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
+        JSON.dump(youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
 
-    del youtube_videos["time"]
+        del video_info["time"]
 
-    return video_info
+        return video_info
+    
+    @staticmethod
+    def get_information_about_videos(video_ids: list) -> list:
+        """
+        Function to get information about many YouTube videos
+
+        :param video_ids: A list of YouTube Video IDs
+        """
+
+        videos = []
+        for video_id in video_ids:
+            video = YouTube.get_video(video_id)
+            if video.get("name") is None: continue
+            if "#short" in video["name"]: continue
+            
+            if video.get("duration") is not None:
+                if video.get("duration", 421) > 420: continue
+            video["image"] = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+            videos.append(video)
+        
+        return videos
+
+    @staticmethod
+    def search_ids(search: str, spotify_id: Optional[str] = None) -> Optional[list]:
+        """
+        Function to get a YouTube video ID based on a search term
+
+        :param search: Search term after searching for video ids on YouTube
+        :param spotify_id: The ID of the Spotify track to save with
+        """
+
+        youtube_ids = JSON.load(YOUTUBE_SEARCH_CACHE_PATH)
+
+        copy_youtube_ids = youtube_ids.copy()
+        for youtube_search, search_data in youtube_ids.items():
+            if search_data["time"] + 2592000 < int(time()):
+                del copy_youtube_ids[youtube_search]
+
+        if len(copy_youtube_ids) != len(youtube_ids):
+            JSON.dump(copy_youtube_ids, YOUTUBE_SEARCH_CACHE_PATH)
+            youtube_ids = copy_youtube_ids
+
+        for youtube_search, search_data in youtube_ids.items():
+            if not spotify_id is None:
+                if search_data["spotify_id"] == spotify_id:
+                    return search_data["youtube_ids"]
+            else:
+                if youtube_search == search:
+                    return search_data["youtube_ids"]
+
+        try:
+            response = requests.get(
+                "https://www.youtube.com/results?search_query=" + search.replace(" ", "+") + "&sp=EgIQAQ%253D%253D",
+                headers = {'User-Agent': random.choice(USER_AGENTS)},
+                timeout = 3
+            )
+            response.raise_for_status()
+        except:
+            return None
+
+        video_ids = re.findall(r"watch\?v=(\S{11})", response.content.decode())
+        video_ids = list(dict.fromkeys(video_ids).keys())
+
+        youtube_videos = JSON.load(YOUTUBE_SEARCH_CACHE_PATH)
+        youtube_videos[search] = {
+            "youtube_ids": video_ids,
+            "spotify_id": spotify_id,
+            "time": int(time())
+        }
+
+        JSON.dump(youtube_videos, YOUTUBE_SEARCH_CACHE_PATH)
+
+        return video_ids
+
+    @staticmethod
+    def get_video(video_id: str) -> Optional[dict]:
+        """
+        Function for requesting information about a YouTube video
+
+        :param video_id: The YouTube Video ID
+        """
+
+        youtube_videos = JSON.load(YOUTUBE_VIDEOS_CACHE_PATH)
+
+        copy_youtube_videos = youtube_videos.copy()
+        for youtube_id, video_info in youtube_videos.items():
+            if video_info["time"] + 31557600 < int(time()):
+                del copy_youtube_videos[youtube_id]
+
+        if len(copy_youtube_videos) != len(youtube_videos):
+            JSON.dump(copy_youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
+            youtube_videos = copy_youtube_videos
+
+        cached_video = youtube_videos.get(video_id)
+        if cached_video is not None:
+            if cached_video.get("duration") is None:
+                youtube_video_executor.submit(YouTube._complete_video_data, video_id)
+            return cached_video
+        
+        try:
+            response = requests.get(
+                f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}",
+                headers = {'User-Agent': random.choice(USER_AGENTS)},
+                timeout = 3
+            )
+            response.raise_for_status()
+            response_data = response.json()
+        except:
+           return None
+
+        video_info = {
+            "name": response_data.get("title"),
+            "artist": response_data.get("author_name"),
+            "time": int(time())
+        }
+
+        youtube_videos = JSON.load(YOUTUBE_VIDEOS_CACHE_PATH)
+        youtube_videos[video_id] = video_info
+
+        JSON.dump(youtube_videos, YOUTUBE_VIDEOS_CACHE_PATH)
+
+        youtube_video_executor.submit(YouTube._complete_video_data, video_id)
+
+        del youtube_videos["time"]
+
+        return video_info
 
 SPOTIFY_CANVAS_CACHE_PATH = os.path.join(CACHE_DIR, "spotify-canvas.json")
 
@@ -890,7 +983,7 @@ def get_canvas_url(spotify_track_id: str) -> str:
 MUSIC_CACHE_DIR = os.path.join(CACHE_DIR, "music")
 FFMPEG_CONF_PATH = os.path.join(DATA_DIR, "FFmpeg.conf")
 
-def get_music(youtube_video_id: str, duration_ms: int) -> Optional[str]:
+def get_music(youtube_video_id: str, duration_ms: Optional[int] = None) -> Optional[str]:
     """
     Function to get the music file path of a YouTube video
 
@@ -936,26 +1029,27 @@ def get_music(youtube_video_id: str, duration_ms: int) -> Optional[str]:
 
     output_file = os.path.join(MUSIC_CACHE_DIR, f"{youtube_video_id}++{str(int(current_time))}.mp3")
 
-    if ffmpeg_path is None:
-        ffmpeg_path = "ffmpeg"
+    if duration_ms is not None:
+        if ffmpeg_path is None:
+            ffmpeg_path = "ffmpeg"
 
-    ffmpeg_output_path = output_file.replace(".mp3", "output.mp3")
+        ffmpeg_output_path = output_file.replace(".mp3", "output.mp3")
 
-    cut_command = [
-        ffmpeg_path,
-        "-i", output_file,
-        "-t", str(round(duration_ms / 1000) - 1),
-        ffmpeg_output_path
-    ]
+        cut_command = [
+            ffmpeg_path,
+            "-i", output_file,
+            "-t", str(round(duration_ms / 1000) - 1),
+            ffmpeg_output_path
+        ]
 
-    try:
-        subprocess.run(cut_command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except Exception as e:
-        if os.path.isfile(ffmpeg_output_path): os.remove(ffmpeg_output_path)
-        error(f"[Error] An error occurred when cutting the FFmpeg music file: {e}" if e != "" else f"[Error] An error occurred when cutting the FFmpeg music file.")
-    else:
-        os.remove(output_file)
-        os.rename(output_file.replace(".mp3", "output.mp3"), output_file)
+        try:
+            subprocess.run(cut_command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except Exception as e:
+            if os.path.isfile(ffmpeg_output_path): os.remove(ffmpeg_output_path)
+            error(f"[Error] An error occurred when cutting the FFmpeg music file: {e}" if e != "" else f"[Error] An error occurred when cutting the FFmpeg music file.")
+        else:
+            os.remove(output_file)
+            os.rename(output_file.replace(".mp3", "output.mp3"), output_file)
 
     for file in os.listdir(MUSIC_CACHE_DIR):
         file_youtube_id, file_time = file.split(".")[0].split("++")
@@ -1030,14 +1124,15 @@ class Spotofy:
                 track_search += artist["name"] + " "
         track_search += "Full Lyrics"
 
-        youtube_id = search_youtube_ids(track_search, spotify_track_id)[0]
+        youtube_id = YouTube.search_ids(track_search, spotify_track_id)[0]
         image_theme = get_image_color(track["image"])
 
         tracks = Spotofy._load(TRACKS_CACHE_PATH)
 
         track = tracks[spotify_track_id]
 
-        track["youtube_id"] = youtube_id
+        if youtube_id is not None:
+            track["youtube_id"] = youtube_id
         track["theme"] = image_theme
 
         tracks[spotify_track_id] = track
@@ -1097,7 +1192,7 @@ class Spotofy:
             if track_id == spotify_track_id:
                 del track_data["time"]
 
-                if track_data.get("youtube_id") is None or track_data.get("theme") is None:
+                if None in [track_data.get("youtube_id"), track_data.get("theme")]:
                     self.executor.submit(self._complete_track_data, spotify_track_id)
 
                 return track_data
@@ -1139,9 +1234,10 @@ class Spotofy:
 
         for artist_id, artist_data in artists.items():
             if artist_id == spotify_artist_id:
-                if not artist_data.get("followers") is None:                
+                if artist_data.get("followers") is not None:                
                     del artist_data["time"]
-                    if not artist_data.get("top_tracks") is None:
+
+                    if artist_data.get("top_tracks") is not None:
                         del artist_data["top_tracks"]
                     return artist_data
 
@@ -1169,8 +1265,7 @@ class Spotofy:
 
         JSON.dump(artists, ARTISTS_CACHE_PATH)
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            executor.submit(self._add_theme, spotify_artist_id, ARTISTS_CACHE_PATH)
+        self.executor.submit(self._add_theme, spotify_artist_id, ARTISTS_CACHE_PATH)
 
         del artist["time"]
 
@@ -1220,9 +1315,8 @@ class Spotofy:
 
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            for track in artist_top_tracks["tracks"]:
-                executor.submit(self._complete_track_data, track["id"])
+        for track in artist_top_tracks["tracks"]:
+            self.executor.submit(self._complete_track_data, track["id"])
 
         top_tracks_ids = [track["id"] for track in artist_top_tracks["tracks"]]
 

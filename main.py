@@ -3,7 +3,7 @@ This open-source software, named 'Spotofy' is distributed under the Apache 2.0 l
 GitHub: https://github.com/tn3w/Spotofy
 """
 
-import time
+import re
 import os
 import logging
 import subprocess
@@ -14,7 +14,7 @@ from flask import Flask, request, send_file, g
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
-from utils import Session, Spotofy, Linux, get_music, search_youtube_ids,\
+from utils import Session, Spotofy, Linux, YouTube, get_music,\
                   render_template, before_request_get_info, shorten_text
 
 if __name__ != "__main__":
@@ -261,6 +261,7 @@ def api_track():
 
     if spotify_track_id is None: return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
     if len(spotify_track_id) != 22: return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
+    if not re.match(r'^[a-zA-Z0-9]+$', spotify_track_id, re.IGNORECASE): return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
 
     tracks = spotofy._load(TRACKS_CACHE_PATH)
     if tracks.get(spotify_track_id) is None:
@@ -286,6 +287,7 @@ def api_artist():
 
     if spotify_artist_id is None: return {"status_code": 400, "error": "Bad Request - The spotify_artist_id parameter is not given."}, 400
     if len(spotify_artist_id) != 22: return {"status_code": 400, "error": "Bad Request - The Spotify artist ID given in spotify_artist_id is incorrect."}, 400
+    if not re.match(r'^[a-zA-Z0-9]+$', spotify_artist_id, re.IGNORECASE): return {"status_code": 400, "error": "Bad Request - The Spotify artist ID given in spotify_artist_id is incorrect."}, 400
 
     artists = spotofy._load(ARTISTS_CACHE_PATH)
     if artists.get(spotify_artist_id) is None:
@@ -309,6 +311,7 @@ def api_playlist():
 
     if spotify_playlist_id is None: return {"status_code": 400, "error": "Bad Request - The spotify_playlist_id parameter is not given."}, 400
     if len(spotify_playlist_id) != 22: return {"status_code": 400, "error": "Bad Request - The Spotify playlist ID given in spotify_playlist_id is incorrect."}, 400
+    if not re.match(r'^[a-zA-Z0-9]+$', spotify_playlist_id, re.IGNORECASE): return {"status_code": 400, "error": "Bad Request - The Spotify playlist ID given in spotify_playlist_id is incorrect."}, 400
 
     limit = request.args.get("limit", 50)
 
@@ -336,6 +339,7 @@ def api_music():
 
     if spotify_track_id is None: return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
     if len(spotify_track_id) != 22: return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
+    if not re.match(r'^[a-zA-Z0-9]+$', spotify_track_id, re.IGNORECASE): return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
 
     tracks = spotofy._load(TRACKS_CACHE_PATH)
     if tracks.get(spotify_track_id) is None:
@@ -365,9 +369,12 @@ def api_music():
                 track_search += artist["name"] + " "
         track_search += "Full Lyrics"
 
-        youtube_id = search_youtube_ids(track_search, spotify_track_id)[0]
+        youtube_id = YouTube.search_ids(track_search, spotify_track_id)[0]
     else:
         youtube_id = track.get("youtube_id")
+    
+    if youtube_id is None:
+        return {"status_code": 500, "error": "Internal Server Error - An error occurred during your request."}, 500
 
     music_path = get_music(youtube_id, track["duration_ms"])
 
@@ -376,6 +383,38 @@ def api_music():
 
     file_name = track["name"].replace(" ", "") + "_" + track["artists"][0]["name"].replace(" ", "") + ".mp3"
     return send_file(music_path, as_attachment = True, download_name = file_name, max_age = 3600)
+
+@app.route("/api/youtube_music")
+def api_youtube_music():
+    """
+    Api route to query music of a specific youtube video
+    e.g. `curl -o TheHype_TwentyOnePilots.mp3 "https://example.com/api/youtube_music?youtube_id=wbdE_Q_eq2k"`
+
+    :arg youtube_id: The ID of the YouTube Video
+    """
+
+    youtube_id = request.args.get("youtube_id")
+
+    if youtube_id is None: return {"status_code": 400, "error": "Bad Request - The youtube_id parameter is not given."}, 400
+    if len(youtube_id) != 11: return {"status_code": 400, "error": "Bad Request - The YouTube Video ID given in youtube_id is incorrect."}, 400
+    if not re.match(r'^[a-zA-Z0-9_-]+$', youtube_id): return {"status_code": 400, "error": "Bad Request - The YouTube Video ID given in youtube_id is incorrect."}, 400
+
+    try:
+        video_data = YouTube._complete_video_data(youtube_id)
+    except Exception as e:
+        return {"status_code": 400, "error": "Bad Request - The YouTube Video ID given in youtube_id is incorrect."}, 400
+    
+    if video_data.get("duration", 421) > 420:
+        return {"status_code": 400, "error": "Bad Request - The given YouTube Video is too long."}, 400
+    
+    music_path = get_music(youtube_id)
+
+    if music_path is None:
+        return {"status_code": 500, "error": "Internal Server Error - An error occurred during your request."}, 500
+    
+    file_name = video_data["name"].replace(" ", "") + "_" + video_data["artist"].replace(" ", "") + ".mp3"
+    return send_file(music_path, as_attachment = True, download_name = file_name, max_age = 3600)
+
 
 @app.route("/api/played_track")
 def api_played_track():
@@ -390,6 +429,7 @@ def api_played_track():
 
     if spotify_track_id is None: return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
     if len(spotify_track_id) != 22: return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
+    if not re.match(r'^[a-zA-Z0-9]+$', spotify_track_id, re.IGNORECASE): return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
 
     session: Session = g.session
     played_tracks = session["played_tracks"]
