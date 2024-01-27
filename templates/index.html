@@ -670,7 +670,7 @@
                             show(searchContainer); hide(loadingContainer);
                         })
                         .catch(error => {
-                            error_handler('Error fetching search results: ' + error)
+                            error_handler('Error fetching search results: ' + error);
                             show(mainContainer); hide(loadingContainer);
                         });
                 });
@@ -736,6 +736,17 @@
                     timeText.textContent = "0:00";
                     durationText.textContent = "0:00";
 
+                    if (useCookies) {
+                        const playedTrackUrl = "/api/played_track?spotify_track_id=" + trackId;
+                        
+                        fetch(playedTrackUrl)
+                            .then(response => {
+                                if (!response.ok) {
+                                    error_handler('Network response was not ok');
+                                }
+                            })
+                    };
+
                     fetch(apiUrl)
                         .then(response => {
                             const contentType = response.headers.get('content-type');
@@ -774,7 +785,7 @@
                         .finally(() => {
                             isLoading = false;
                             playbarActionsStart.classList.remove('loading');
-                        });
+                        })
                 }
 
                 function playMusic() {

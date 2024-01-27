@@ -21,7 +21,7 @@ import yt_dlp
 from pytube import YouTube
 import distro
 from collections import Counter
-from threading import Lock, Thread
+from threading import Lock
 from spotipy import Spotify, client
 from flask import request, g, Response
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -343,8 +343,16 @@ CACHE_DIR = os.path.join(CURRENT_DIR, "cache")
 SESSIONS_PATH = os.path.join(DATA_DIR, "sessions.json")
 
 class Session(dict):
+    "A class representing user sessions with session ID, token, and data management."
 
     def __init__(self, session_id: Optional[str] = None, session_token: Optional[str] = None):
+        """
+        Initializes a new session or retrieves an existing session based on provided session ID and token.
+
+        :param session_id: The unique identifier for the user session.
+        :param session_token: The security token associated with the session.
+        """
+
         super().__init__()
 
         self.session_id = None
@@ -367,16 +375,25 @@ class Session(dict):
     
     @staticmethod
     def _after_request(response: Response) -> Response:
-        try:
-            g.session_cookie
-        except:
-            pass
-        else:
+        """
+        Handles actions to be performed after processing a request, such as setting session cookies.
+
+        :param response: The response object to be modified.
+        """
+
+        if getattr(g, "session_cookie", None) is not None:
             response.set_cookie("SESSION", g.session_cookie, max_age=93312000)
         return response
 
     @staticmethod
     def _get_session(session_id: str, session_token: Optional[str] = None) -> Tuple[Optional[str], Optional[list]]:
+        """
+        Retrieves session information based on the provided session ID and token.
+
+        :param session_id: The unique identifier for the user session.
+        :param session_token: The security token associated with the session.
+        """
+
         sessions = JSON.load(SESSIONS_PATH)
 
         for hashed_session_id, session_data in sessions.items():
@@ -388,29 +405,39 @@ class Session(dict):
                         return hashed_session_id, session_data
                 else:
                     return hashed_session_id, session_data
-            break
+                break
         return None, None
 
     def __getitem__(self, key) -> any:
+        """
+        Retrieves the value associated with the specified key in the session data.
+
+        :param key: The key to retrieve from the session data.
+        """
+
         if self.session_id is None:
             return None
 
         _, session_data = self._get_session(self.session_id, self.session_token)
 
-        if session_data["data"] == None:
+        if session_data["data"] is None:
             data = {}
         else:
             decrypted_data = SymmetricCrypto(self.session_token).decrypt(session_data["data"])
             data = json.loads(decrypted_data)
 
-        try:
-            return data[key]
-        except:
-            return None
+        return data.get(key)
 
     def __setitem__(self, key, value) -> None:
-        if request.cookies.get("use_cookies", "1") == "0":
-            return
+        """
+        Sets a key-value pair in the session data, creating a new session if necessary.
+
+        :param key: The key to set in the session data.
+        :param value: The value to associate with the specified key.
+        """
+
+        if request.cookies.get("use_cookies", "1") == "0": return
+        
         if self.session_id is None:
             sessions = JSON.load(SESSIONS_PATH)
 
@@ -418,6 +445,7 @@ class Session(dict):
             while any([FastHashing().compare(session_id, hashed_session_id) for hashed_session_id, _ in sessions.items()]):
                 session_id = generate_random_string(10)
             hashed_session_id = FastHashing().hash(session_id)
+            
             session_token = generate_random_string(40)
             hashed_session_token = FastHashing().hash(session_token)
 
@@ -644,7 +672,7 @@ class Linux:
                 update_process = subprocess.Popen("sudo " + update_command, shell=True)
                 update_process.wait()
             except Exception as e:
-                print(f"[Error]Error using update Command while installing linux package '{package_name}': '{e}'")
+                error(f"[Error]Error using update Command while installing linux package '{package_name}': '{e}'")
 
             install_process = subprocess.Popen(f"sudo {installation_command} {package_name} -y", shell=True)
             install_process.wait()
@@ -690,66 +718,6 @@ def get_image_color(image_url: str):
             return hex_color
 
     return None
-
-IMAGES_CACHE_PATH = os.path.join(CACHE_DIR, "images.json")
-
-def remove_image_url(image_url):
-    image_name = image_url.replace("https://i.ytimg.com/vi/", "")\
-        .replace("/mqdefault.jpg", "").replace("https://i.scdn.co/image/", "")
-    return image_name
-
-def preload_images(objects: list) -> list:
-    cached_images = JSON.load(IMAGES_CACHE_PATH)
-
-    def process_object(object):
-        image_url = object["image"]
-        image_name = remove_image_url(image_url)
-
-        cached_image = cached_images.get(image_name)
-        if cached_image is not None:
-            object["image"] = "data:image/webp;base64," + cached_image
-            return object
-
-        return None
-
-    def cache_image_in_background(image_url):
-        try:
-            response = requests.get(
-                image_url + "?p=" + generate_random_string(5, with_punctuation=False),
-                headers={'User-Agent': random.choice(USER_AGENTS)},
-                timeout=1
-            )
-            response.raise_for_status()
-        except:
-            return
-
-        img = Image.open(BytesIO(response.content))
-        buffered = BytesIO()
-        img.save(buffered, format="WEBP", quality=85)
-
-        base64_image = b64encode(buffered.getvalue()).decode('utf-8')
-
-        image_name = remove_image_url(image_url)
-
-        cached_images[image_name] = base64_image
-        JSON.dump(cached_images, IMAGES_CACHE_PATH)
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future_to_object = {executor.submit(process_object, obj): obj for obj in objects}
-
-        new_objects = []
-        for future in concurrent.futures.as_completed(future_to_object):
-            obj = future_to_object[future]
-            try:
-                result = future.result()
-                if result is not None:
-                    new_objects.append(result)
-                else:
-                    executor.submit(cache_image_in_background, obj["image"])
-            except Exception as e:
-                print(f"Error processing object: {e}")
-
-    return new_objects
 
 YOUTUBE_SEARCH_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-search.json")
 
@@ -984,7 +952,7 @@ def get_music(youtube_video_id: str, duration_ms: int) -> Optional[str]:
         subprocess.run(cut_command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except Exception as e:
         if os.path.isfile(ffmpeg_output_path): os.remove(ffmpeg_output_path)
-        error(f"[Error] An error occurred when cutting the FFmpeg music file: {e}")
+        error(f"[Error] An error occurred when cutting the FFmpeg music file: {e}" if e != "" else f"[Error] An error occurred when cutting the FFmpeg music file.")
     else:
         os.remove(output_file)
         os.rename(output_file.replace(".mp3", "output.mp3"), output_file)
@@ -1023,6 +991,7 @@ class Spotofy:
             credentials = file.read().strip()
         self.spotify_client_id, self.spotify_client_secret = credentials.split("---")[:2]
         self._reconnect()
+        self.executor = concurrent.futures.ThreadPoolExecutor()
 
     def _reconnect(self):
         """
@@ -1129,8 +1098,7 @@ class Spotofy:
                 del track_data["time"]
 
                 if track_data.get("youtube_id") is None or track_data.get("theme") is None:
-                    thread = Thread(target = self._complete_track_data, args = (spotify_track_id, ))
-                    thread.start()
+                    self.executor.submit(self._complete_track_data, spotify_track_id)
 
                 return track_data
 
@@ -1154,8 +1122,7 @@ class Spotofy:
         tracks[spotify_track_id] = track
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
-        thread = Thread(target = self._complete_track_data, args = (spotify_track_id, ))
-        thread.start()
+        self.executor.submit(self._complete_track_data, spotify_track_id)
 
         del track["time"]
 
@@ -1202,8 +1169,8 @@ class Spotofy:
 
         JSON.dump(artists, ARTISTS_CACHE_PATH)
 
-        thread = Thread(target = self._add_theme, args = (spotify_artist_id, ARTISTS_CACHE_PATH, ))
-        thread.start()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            executor.submit(self._add_theme, spotify_artist_id, ARTISTS_CACHE_PATH)
 
         del artist["time"]
 
@@ -1253,9 +1220,9 @@ class Spotofy:
 
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
-        for track in artist_top_tracks["tracks"]:
-            thread = Thread(target = self._complete_track_data, args = (track["id"], ))
-            thread.start()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            for track in artist_top_tracks["tracks"]:
+                executor.submit(self._complete_track_data, track["id"])
 
         top_tracks_ids = [track["id"] for track in artist_top_tracks["tracks"]]
 
@@ -1341,8 +1308,7 @@ class Spotofy:
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
         for track in playlist["tracks"]["items"]:
-            thread = Thread(target = self._complete_track_data, args = (track["track"]["id"], ))
-            thread.start()
+            self.executor.submit(self._complete_track_data, track["track"]["id"])
 
         playlist["tracks"] = [track["track"]["id"] for track in playlist["tracks"]["items"]]
 
@@ -1352,8 +1318,7 @@ class Spotofy:
 
         JSON.dump(playlists, PLAYLISTS_CACHE_PATH)
 
-        thread = Thread(target = self._add_theme, args = (spotify_playlist_id, PLAYLISTS_CACHE_PATH, ))
-        thread.start()
+        self.executor.submit(self._add_theme, spotify_playlist_id, PLAYLISTS_CACHE_PATH)
 
         del playlist["time"]
         playlist["tracks"] = playlist_tracks
@@ -1423,10 +1388,9 @@ class Spotofy:
             tracks[track["id"]] = track
 
         JSON.dump(tracks, TRACKS_CACHE_PATH)
-
+        
         for track in search["tracks"]["items"]:
-            thread = Thread(target = self._complete_track_data, args = (track["id"], ))
-            thread.start()
+            self.executor.submit(self._complete_track_data, track["id"])
 
         artists = Spotofy._load(ARTISTS_CACHE_PATH)
 
@@ -1450,10 +1414,9 @@ class Spotofy:
             artists[artist["id"]] = artist
 
         JSON.dump(artists, ARTISTS_CACHE_PATH)
-
+        
         for artist in search["artists"]["items"]:
-            thread2 = Thread(target = self._add_theme, args = (artist["id"], ARTISTS_CACHE_PATH, ))
-            thread2.start()
+            self.executor.submit(self._add_theme, artist["id"], ARTISTS_CACHE_PATH)
 
         playlists = Spotofy._load(PLAYLISTS_CACHE_PATH)
 
@@ -1474,10 +1437,9 @@ class Spotofy:
             playlists[playlist["id"]] = playlist
 
         JSON.dump(playlists, PLAYLISTS_CACHE_PATH)
-
+        
         for playlist in search["playlists"]["items"]:
-            thread3 = Thread(target = self._add_theme, args = (playlist["id"], PLAYLISTS_CACHE_PATH, ))
-            thread3.start()
+            self.executor.submit(self._add_theme, playlist["id"], PLAYLISTS_CACHE_PATH)
 
         search_ids = {
             "time": int(time()),
@@ -1565,8 +1527,10 @@ class Spotofy:
         JSON.dump(tracks, TRACKS_CACHE_PATH)
 
         for track in recommendation["tracks"]:
-            thread = Thread(target = self._complete_track_data, args = (track["id"], ))
-            thread.start()
+            self.executor.submit(self._complete_track_data, track["id"])
+        
+        for track in recommendation["tracks"]:
+            self.executor.submit(self._complete_track_data, track["id"])
 
         recommendations = Spotofy._load(RECOMMENDATIONS_CACHE_PATH)
         recommendations[''.join(total_seeds).replace(" ", "") + country.lower()] = {

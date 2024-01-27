@@ -3,6 +3,7 @@ This open-source software, named 'Spotofy' is distributed under the Apache 2.0 l
 GitHub: https://github.com/tn3w/Spotofy
 """
 
+import time
 import os
 import logging
 import subprocess
@@ -14,7 +15,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
 from utils import Session, Spotofy, Linux, get_music, search_youtube_ids,\
-                  render_template, before_request_get_info, shorten_text, preload_images
+                  render_template, before_request_get_info, shorten_text
 
 if __name__ != "__main__":
     exit()
@@ -232,8 +233,6 @@ def index():
         for track in tracks:
             track["name"] = shorten_text(track["name"])
             formatted_tracks.append(track)
-        
-        tracks = preload_images(tracks)
 
         sections.extend([
             {"title": "You might like this", "tracks": tracks[:8]},
@@ -245,8 +244,6 @@ def index():
             for track_id in played_tracks:
                 track = spotofy.track(track_id)
                 new_tracks.append(track)
-
-            new_tracks = preload_images(new_tracks)
 
             sections.append({"title": "Recently played", "tracks": new_tracks[:8]})
     return render_template("index.html", sections=sections)
@@ -379,6 +376,31 @@ def api_music():
 
     file_name = track["name"].replace(" ", "") + "_" + track["artists"][0]["name"].replace(" ", "") + ".mp3"
     return send_file(music_path, as_attachment = True, download_name = file_name, max_age = 3600)
+
+@app.route("/api/played_track")
+def api_played_track():
+    """
+    Api route to add a track to the playes_tracks data
+    e.g. `curl -X GET "https://example.com/api/played_track?spotify_track_id=7I3skNaQdvZSS7zXY2VHId" -H "Content-Type: application/json"`
+
+    :arg spotify_track_id: The ID of the Spotify track
+    """
+
+    spotify_track_id = request.args.get("spotify_track_id")
+
+    if spotify_track_id is None: return {"status_code": 400, "error": "Bad Request - The spotify_track_id parameter is not given."}, 400
+    if len(spotify_track_id) != 22: return {"status_code": 400, "error": "Bad Request - The Spotify track ID given in spotify_track_id is incorrect."}, 400
+
+    session: Session = g.session
+    played_tracks = session["played_tracks"]
+    if played_tracks is None:
+        played_tracks = []
+
+    played_tracks.append(spotify_track_id)
+    played_tracks = list(dict.fromkeys(played_tracks).keys())
+    session["played_tracks"] = played_tracks
+
+    return "200"
 
 @app.route("/api/search")
 def api_search():
