@@ -716,15 +716,21 @@ def get_image_color(image_url: str):
 
     sorted_colors = sorted(color_counts.items(), key=lambda x: -x[1])
 
-    for color, _ in sorted_colors:
-        red, green, blue = color
+    current_brightness = 0.4
 
-        brightness = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
+    while True:
+        for color, _ in sorted_colors:
+            red, green, blue = color
 
-        if 0.1 < brightness < 0.9:
-            hex_color = "#{:02X}{:02X}{:02X}".format(red, green, blue)
-            return hex_color
+            brightness = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
 
+            if current_brightness < brightness < (1 - current_brightness):
+                hex_color = "#{:02X}{:02X}{:02X}".format(red, green, blue)
+                return hex_color
+        
+        if current_brightness == 0: break
+        current_brightness -= 0.1
+        
     return None
 
 YOUTUBE_SEARCH_CACHE_PATH = os.path.join(CACHE_DIR, "youtube-search.json")
