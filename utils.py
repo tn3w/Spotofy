@@ -548,10 +548,8 @@ def get_client_ip() -> str:
     client_ip = shorten_ipv6(client_ip)
     return client_ip
 
-
 IP_API_CACHE_PATH = os.path.join(CACHE_DIR, "ipapi-cache.json")
 IP_INFO_KEYS = ['continent', 'continentCode', 'country', 'countryCode', 'region', 'regionName', 'city', 'district', 'zip', 'lat', 'lon', 'timezone', 'offset', 'currency', 'isp', 'org', 'as', 'asname', 'reverse', 'mobile', 'proxy', 'hosting', 'time']
-
 
 def get_ip_info(ip_address: str) -> dict:
     """

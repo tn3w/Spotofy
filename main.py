@@ -415,7 +415,6 @@ def api_youtube_music():
     file_name = video_data["name"].replace(" ", "") + "_" + video_data["artist"].replace(" ", "") + ".mp3"
     return send_file(music_path, as_attachment = True, download_name = file_name, max_age = 3600)
 
-
 @app.route("/api/played_track")
 def api_played_track():
     """
