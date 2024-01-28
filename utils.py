@@ -810,6 +810,7 @@ class YouTube:
 
         cached_video = youtube_videos.get(video_id)
         if cached_video is not None:
+            del cached_video["time"]
             return cached_video
         
         yt = pytube.YouTube("https://youtube.com/watch?v=" + video_id)
@@ -842,9 +843,9 @@ class YouTube:
             video = YouTube.get_video(video_id)
             if video.get("name") is None: continue
             if "#short" in video["name"]: continue
-            
-            if video.get("duration") is not None:
-                if video.get("duration", 421) > 420: continue
+            if video.get("duration", 421) > 420: continue
+
+            video["id"] = video_id
             video["image"] = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
             videos.append(video)
         

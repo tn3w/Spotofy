@@ -192,60 +192,37 @@ log.setLevel(logging.WARNING)
 
 spotofy = Spotofy()
 
-@app.route("/", methods = ["GET", "POST"])
+@app.route("/")
 def index():
     "Returns the main page and the search function"
 
-    sections = []
-
     session: Session = g.session
 
-    if request.method == "POST":
-        try:
-            search_q = request.form["q"].strip()
-        except:
-            pass
-        else:
-            if not search_q == "" and not len(search_q) > 40:
-                results = spotofy.search(search_q)
-                num_results = len(results["tracks"]) + len(results["playlists"]) + len(results["artists"])
+    played_tracks = session["played_tracks"]
+    if played_tracks is None:
+        played_tracks = []
 
-                if num_results == 0:
-                    sections.append({"title": "No search results were found", "tracks": []})
-                else:
-                    sections.extend([
-                        {"title": "Tracks found", "tracks": results["tracks"]},
-                        {"title": "Playlists found", "tracks": results["playlists"]},
-                        {"title": "Artists found", "tracks": results["artists"]}
-                    ])
+    if len(played_tracks) != 0:
+        tracks = spotofy.recommendations(seed_tracks = played_tracks, country = g.info["countryCode"])
+    else:
+        tracks = spotofy.recommendations(seed_genres = ["pop", "electropop", "synthpop", "indie pop"], country = g.info["countryCode"])
 
-    if len(sections) == 0:
-        played_tracks = session["played_tracks"]
-        if played_tracks is None:
-            played_tracks = []
+    tracks = [{"name": shorten_text(track["name"]), **track} for track in tracks]
 
-        if len(played_tracks) != 0:
-            tracks = spotofy.recommendations(seed_tracks = played_tracks, country = g.info["countryCode"])
-        else:
-            tracks = spotofy.recommendations(seed_genres = ["pop", "electropop", "synthpop", "indie pop"], country = g.info["countryCode"])
+    sections = [
+        {"title": "You might like this", "tracks": tracks[:8]},
+        {"title": "Do you know this already", "tracks": tracks[8:16]},
+    ]
 
-        formatted_tracks = []
-        for track in tracks:
-            track["name"] = shorten_text(track["name"])
-            formatted_tracks.append(track)
+    if len(played_tracks) != 0:
+        new_tracks = []
+        for track_id in played_tracks:
+            track = spotofy.track(track_id)
+            new_tracks.append(track)
 
-        sections.extend([
-            {"title": "You might like this", "tracks": tracks[:8]},
-            {"title": "Do you know this already", "tracks": tracks[8:16]},
-        ])
+        new_tracks = [{"name": shorten_text(track["name"]), **track} for track in new_tracks]
 
-        if len(played_tracks) != 0:
-            new_tracks = []
-            for track_id in played_tracks:
-                track = spotofy.track(track_id)
-                new_tracks.append(track)
-
-            sections.append({"title": "Recently played", "tracks": new_tracks[:8]})
+        sections.append({"title": "Recently played", "tracks": new_tracks[:8]})
     return render_template("index.html", sections=sections)
 
 @app.route("/api/track")
@@ -315,7 +292,7 @@ def api_playlist():
 
     limit = request.args.get("limit", 50)
 
-    if not limit.isdigit(): return {"status_code": 400, "error": "Bad Request - The limit parameter must be an integer."}, 400
+    if not str(limit).isdigit(): return {"status_code": 400, "error": "Bad Request - The limit parameter must be an integer."}, 400
     if int(limit) > 100: return {"status_code": 400, "error": "Bad Request - The limit parameter must not be greater than 100."}, 400
 
     playlists = spotofy._load(PLAYLISTS_CACHE_PATH)
@@ -412,7 +389,7 @@ def api_youtube_music():
     if music_path is None:
         return {"status_code": 500, "error": "Internal Server Error - An error occurred during your request."}, 500
     
-    file_name = video_data["name"].replace(" ", "") + "_" + video_data["artist"].replace(" ", "") + ".mp3"
+    file_name = video_data["name"].replace(" ", "") + ".mp3"
     return send_file(music_path, as_attachment = True, download_name = file_name, max_age = 3600)
 
 @app.route("/api/played_track")
@@ -453,14 +430,43 @@ def api_search():
 
     q = request.args.get("q")
     if q is None: return {"status_code": 400, "error": "Bad Request - The q parameter is not given."}, 400
+    if len(q) == 0 or len(q) > 20: return {"status_code": 400, "error": "Bad Request - The q parameter is not valid."}, 400
     
     max_results = request.args.get("max_results", 8)
 
-    if not max_results.isdigit(): return {"status_code": 400, "error": "Bad Request - The max_results parameter must be an integer."}, 400
-    if int(max_results) > 20: return {"status_code": 400, "error": "Bad Request - The max_results parameter cannot be greater than 20."}, 400
+    if not str(max_results).isdigit(): return {"status_code": 400, "error": "Bad Request - The max_results parameter must be an integer."}, 400
+    max_results = int(max_results)
+    if int(max_results) > 8: return {"status_code": 400, "error": "Bad Request - The max_results parameter cannot be greater than 20."}, 400
     if int(max_results) == 0: return {"status_code": 400, "error": "Bad Request - The max_results parameter cannot be 0."}, 400
+    
+    try:
+        spotify_results = spotofy.search(q)
 
-    return "", 404
+        if not "Lyric" in q:
+            if not q.endswith(" "): q += " "
+            q += "Lyrics"
+        youtube_results = YouTube.search_ids(q)[:max_results]
+        videos = YouTube.get_information_about_videos(youtube_results)
+    except:
+        return {"status_code": 500, "error": "Internal Server Error - The search could not be completed because an error occurred."}, 500
+    
+    num_results = len(spotify_results["tracks"]) + len(spotify_results["playlists"]) + len(spotify_results["artists"]) + len(youtube_results)
+
+    if num_results == 0:
+        sections = {"title": "No search results were found", "tracks": []}
+    else:
+        tracks = [{"name": shorten_text(track["name"]), "type": "track", **track} for track in spotify_results["tracks"][:max_results]]
+        playlists = [{"name": shorten_text(playlist["name"]), "type": "playlist", **playlist} for playlist in spotify_results["playlists"][:max_results]]
+        artists = [{"name": shorten_text(artist["name"]), "type": "artist", **artist} for artist in spotify_results["artists"][:max_results]]
+        videos = [{"name": shorten_text(video["name"]), "type": "youtube", **video} for video in videos]
+        sections = [
+            {"title": "Tracks", "tracks": tracks},
+            {"title": "YouTube Videos", "tracks": videos},
+            {"title": "Playlists", "tracks": playlists},
+            {"title": "Artists", "tracks": artists}
+        ]
+
+    return {"sections": sections}
 
 @app.errorhandler(404)
 def not_found(_):
