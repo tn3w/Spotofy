@@ -916,8 +916,8 @@
                                         artistContainer.appendChild(span);
                                         songDetails.appendChild(artistContainer);
                                     } else if (track.hasOwnProperty('artists')) {
+                                        const artistContainer = document.createElement('p');
                                         track.artists.forEach((artist, index) => {
-                                            const artistContainer = document.createElement('p');
                                             const span = document.createElement('span');
                                             span.setAttribute('id', 'artist');
                                             span.setAttribute('artist-id', artist.id);
@@ -929,19 +929,18 @@
                                                 const comma = document.createTextNode(', ');
                                                 artistContainer.appendChild(comma);
                                             }
-
-                                            songDetails.appendChild(artistContainer);
                                         });
+                                        songDetails.appendChild(artistContainer);
                                     }
 
                                     songBox.appendChild(imageContainer);
                                     songBox.appendChild(songDetails);
                                     songGrid.appendChild(songBox);
                                 });
-
                                 sectionElement.appendChild(songGrid);
                                 searchResults.appendChild(sectionElement);
                             });
+                            searchResults.innerHTML += '<br><br><br>';
                             show(searchContainer); hide(loadingContainer);
                         })
                         .catch(error => {

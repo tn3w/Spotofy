@@ -430,7 +430,7 @@ def api_search():
 
     q = request.args.get("q")
     if q is None: return {"status_code": 400, "error": "Bad Request - The q parameter is not given."}, 400
-    if len(q) == 0 or len(q) > 20: return {"status_code": 400, "error": "Bad Request - The q parameter is not valid."}, 400
+    if len(q) == 0 or len(q) > 40: return {"status_code": 400, "error": "Bad Request - The q parameter is not valid."}, 400
     
     max_results = request.args.get("max_results", 8)
 
