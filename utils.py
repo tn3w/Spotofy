@@ -843,7 +843,7 @@ class YouTube:
             video = YouTube.get_video(video_id)
             if video.get("name") is None: continue
             if "#short" in video["name"]: continue
-            if video.get("duration", 421) > 420: continue
+            if video.get("duration", 421) > 420 or video.get("duration", 59) < 60: continue
 
             video["id"] = video_id
             video["image"] = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
