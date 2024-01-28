@@ -948,6 +948,8 @@ def get_music(youtube_video_id: str, duration_ms: Optional[int] = None) -> Optio
 
     for file in os.listdir(MUSIC_CACHE_DIR):
         file_youtube_id, file_time = file.split(".")[0].split("++")
+        file_time = ''.join(char for char in file_time if char.isdigit())
+
         if int(file_time) + 2592000 < int(time()):
             os.remove(os.path.join(MUSIC_CACHE_DIR, file))
         else:
@@ -1001,7 +1003,7 @@ def get_music(youtube_video_id: str, duration_ms: Optional[int] = None) -> Optio
             os.rename(output_file.replace(".mp3", "output.mp3"), output_file)
 
     for file in os.listdir(MUSIC_CACHE_DIR):
-        file_youtube_id, file_time = file.split(".")[0].split("++")
+        file_youtube_id, _ = file.split(".")[0].split("++")
         if file_youtube_id == youtube_video_id:
             return os.path.join(MUSIC_CACHE_DIR, file)
 

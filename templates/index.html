@@ -745,6 +745,11 @@
                                     error_handler('Network response was not ok');
                                 }
                             })
+                            .catch(error => {
+                                if (error.message !== "") {
+                                    error_handler(error);
+                                }
+                            })
                     };
 
                     fetch(apiUrl)
