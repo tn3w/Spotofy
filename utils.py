@@ -38,6 +38,13 @@ import hashlib
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(CURRENT_DIR, "templates")
 
+class LM: # ListModifier
+    def remove_duplicates(origin_list: list) -> list:
+        return list(dict.fromkeys(origin_list).keys())
+
+    def reverse(origin_list: list) -> list:
+        return origin_list[::-1]
+
 def generate_random_string(length: int, with_punctuation: bool = True, with_letters: bool = True):
     """
     Generates a random string
@@ -195,7 +202,7 @@ class JSON:
         with file_locks[file_name]:
             with open(file_name, "w", encoding = "utf-8") as file:
                 json.dump(data, file)
-       
+
 class SymmetricCrypto:
     """
     Implementation of symmetric encryption with AES
@@ -775,8 +782,7 @@ class YouTube:
         except:
             return None
 
-        video_ids = re.findall(r"watch\?v=(\S{11})", response.content.decode())
-        video_ids = list(dict.fromkeys(video_ids).keys())
+        video_ids = LM.remove_duplicates(re.findall(r"watch\?v=(\S{11})", response.content.decode()))
 
         youtube_videos = JSON.load(YOUTUBE_SEARCH_CACHE_PATH)
         youtube_videos[search] = {

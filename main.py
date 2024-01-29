@@ -14,7 +14,7 @@ from flask import Flask, request, send_file, g
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
-from utils import Session, Spotofy, Linux, YouTube, get_music,\
+from utils import Session, Spotofy, Linux, YouTube, LM, get_music,\
                   render_template, before_request_get_info, shorten_text
 
 if __name__ != "__main__":
@@ -27,6 +27,7 @@ LOGO = r"""   _____             __        ____
 /____/ .___/\____/\__/\____/_/  \__, /  
     /_/                        /____/
 """
+IMAGE_NOT_FOUND =  "data:image/png;base64,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"
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(CURRENT_DIR, "templates")
@@ -203,7 +204,7 @@ def index():
         played_tracks = []
 
     if len(played_tracks) != 0:
-        tracks = spotofy.recommendations(seed_tracks = played_tracks, country = g.info["countryCode"])
+        tracks = spotofy.recommendations(seed_tracks = LM.reverse(played_tracks)[:5], country = g.info["countryCode"])
     else:
         tracks = spotofy.recommendations(seed_genres = ["pop", "electropop", "synthpop", "indie pop"], country = g.info["countryCode"])
 
@@ -220,7 +221,7 @@ def index():
             track = spotofy.track(track_id)
             new_tracks.append(track)
 
-        new_tracks = [{"name": shorten_text(track["name"]), **track} for track in new_tracks]
+        new_tracks = [{"name": shorten_text(track["name"]), "image": IMAGE_NOT_FOUND if track["image"] is None else track["image"], **track} for track in LM.reverse(new_tracks)]
 
         sections.append({"title": "Recently played", "tracks": new_tracks[:8]})
     return render_template("index.html", sections=sections)
@@ -333,9 +334,9 @@ def api_music():
     if played_tracks is None:
         played_tracks = []
 
-    played_tracks.append(spotify_track_id)
-    played_tracks = list(dict.fromkeys(played_tracks).keys())
-    session["played_tracks"] = played_tracks
+    played_tracks = LM.reverse(played_tracks)
+    played_tracks.insert(0, spotify_track_id)
+    session["played_tracks"] = LM.reverse(LM.remove_duplicates(played_tracks))
 
     if track.get("youtube_id") is None:
         track_search = track["name"] + " "
@@ -412,9 +413,9 @@ def api_played_track():
     if played_tracks is None:
         played_tracks = []
 
-    played_tracks.append(spotify_track_id)
-    played_tracks = list(dict.fromkeys(played_tracks).keys())
-    session["played_tracks"] = played_tracks
+    played_tracks = LM.reverse(played_tracks)
+    played_tracks.insert(0, spotify_track_id)
+    session["played_tracks"] = LM.reverse(LM.remove_duplicates(played_tracks))
 
     return "200"
 
@@ -445,8 +446,8 @@ def api_search():
         if not "Lyric" in q:
             if not q.endswith(" "): q += " "
             q += "Lyrics"
-        youtube_results = YouTube.search_ids(q)[:max_results]
-        videos = YouTube.get_information_about_videos(youtube_results)
+        youtube_results = YouTube.search_ids(q)[:max_results + 1]
+        videos = YouTube.get_information_about_videos(youtube_results)[:max_results]
     except:
         return {"status_code": 500, "error": "Internal Server Error - The search could not be completed because an error occurred."}, 500
     
@@ -455,10 +456,19 @@ def api_search():
     if num_results == 0:
         sections = {"title": "No search results were found", "tracks": []}
     else:
-        tracks = [{"name": shorten_text(track["name"]), "type": "track", **track} for track in spotify_results["tracks"][:max_results]]
-        playlists = [{"name": shorten_text(playlist["name"]), "type": "playlist", **playlist} for playlist in spotify_results["playlists"][:max_results]]
-        artists = [{"name": shorten_text(artist["name"]), "type": "artist", **artist} for artist in spotify_results["artists"][:max_results]]
-        videos = [{"name": shorten_text(video["name"]), "type": "youtube", **video} for video in videos]
+        def format_objects(objects: list, type: str) -> list:
+            new_objects = []
+            for object in objects:
+                object["name"] = shorten_text(object["name"])
+                object["image"] = IMAGE_NOT_FOUND if object["image"] is None else object["image"]
+                object["type"] = type
+                new_objects.append(object)
+            return new_objects
+        
+        tracks = format_objects(spotify_results["tracks"][:max_results], "track")
+        playlists = format_objects(spotify_results["playlists"][:max_results], "playlist")
+        artists = format_objects(spotify_results["artists"][:max_results], "artist")
+        videos = format_objects(videos, "youtube")
         sections = [
             {"title": "Tracks", "tracks": tracks},
             {"title": "YouTube Videos", "tracks": videos},

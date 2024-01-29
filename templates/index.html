@@ -23,6 +23,10 @@
                 margin: 0;
             }
 
+            a:hover {
+                cursor: pointer;
+            }
+
             main {
                 padding-left: 20px;
                 padding-right: 20px;
@@ -410,7 +414,7 @@
 
         <div id="main-elements">
             <header>
-                <a href="/">
+                <a onclick="document.getElementById('main').style.display = 'block'; document.getElementById('search').style.display = 'none'; document.getElementById('loading').style.display = 'none';">
                     <div class="left-section">
                         <img src="data:image/png;base64,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" alt="App Icon">
                         <h1>Spotofy</h1>
@@ -602,6 +606,19 @@
                 const durationText = document.getElementById('duration-text');
                 let isLoading = false;
 
+                function toogleMusic() {
+                    if (isLoading) {
+                        return;
+                    }
+                    if (musicPlayer.paused) {
+                        musicPlayer.play();
+                        playbarActionsStart.src=pauseImage;
+                    } else {
+                        musicPlayer.pause();
+                        playbarActionsStart.src=playImage;
+                    }
+                }
+
                 function formatTime(time) {
                     const minutes = Math.floor(time / 60);
                     const seconds = Math.floor(time % 60);
@@ -628,7 +645,7 @@
                 function startPlayer(trackId, playYoutube = false) {
                     if (audioUrlCache[trackId]) {
                         musicPlayer.src = audioUrlCache[trackId];
-                        playMusic();
+                        toogleMusic();
                         return;
                     }
 
@@ -651,7 +668,7 @@
                     timeText.textContent = "0:00";
                     durationText.textContent = "0:00";
 
-                    if (useCookies && playYoutube) {
+                    if (useCookies && !playYoutube) {
                         const playedTrackUrl = "/api/played_track?spotify_track_id=" + trackId;
                         
                         fetch(playedTrackUrl)
@@ -706,19 +723,6 @@
                             isLoading = false;
                             playbarActionsStart.classList.remove('loading');
                         })
-                }
-
-                function playMusic() {
-                    if (isLoading) {
-                        return;
-                    }
-                    if (musicPlayer.paused) {
-                        musicPlayer.play();
-                        playbarActionsStart.src=pauseImage;
-                    } else {
-                        musicPlayer.pause();
-                        playbarActionsStart.src=playImage;
-                    }
                 }
                 
                 volumeSlider.addEventListener('input', function () {
@@ -816,7 +820,7 @@
                     playIcons[i].onclick = playBarOnClick;
                 }
 
-                playbarActionsStart.onclick = playMusic;
+                playbarActionsStart.onclick = toogleMusic;
 
                 document.addEventListener("keydown", function(event) {
                     if (event.code === "Space" && document.activeElement.tagName !== "INPUT") {
@@ -825,7 +829,7 @@
                             return;
                         }
                         try {
-                            playMusic();
+                            toogleMusic();
                         } catch (error) {
                             error_handler(error);
                         };
@@ -874,6 +878,7 @@
 
                     if (searchInput.value.trim() == "") {
                         show(mainContainer); hide(searchContainer);
+                        return;
                     }
 
                     const apiUrl = `/api/search?q=${query}&max_results=8`;
